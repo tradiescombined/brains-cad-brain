@@ -14,6 +14,12 @@ import {
   type CostTypeName,
 } from "./cells";
 import { CatalogueModal } from "./CatalogueModal";
+import { CATALOGUE_MIME, CataloguePanel } from "./CataloguePanel";
+import { applyRowMove, dropPosition, resolveCatalogueDrop, resolveRowMove, type DropPos } from "@/lib/costings-dnd";
+
+/** dataTransfer type for a grid row being dragged to a new position. */
+const ROW_MIME = "application/x-bcb-costing-row";
+const PANEL_KEY = "bcb.costings.cataloguePanel";
 import { SummaryPanel, fmtPct } from "./SummaryPanel";
 
 type Row = EstimateItem;
@@ -37,7 +43,7 @@ export function CostingsGrid(props: {
   uoms: string[];
   suppliers: { id: string; name: string; type: string | null }[];
   catalogues: { id: string; name: string; status: string }[];
-  catalogueCategories: { id: string; catalogueId: string; name: string }[];
+  catalogueCategories: { id: string; catalogueId: string; parentId: string | null; name: string }[];
   /** Default taxable flag per cost type (from Settings > Tax rates). */
   taxDefaults?: Record<string, boolean>;
 }) {
@@ -88,6 +94,26 @@ export function CostingsGrid(props: {
     setCollapsed(s);
     try { localStorage.setItem(storageKey, JSON.stringify([...s])); } catch { /* ignore */ }
   };
+
+  // Catalogue panel: docked open/closed state remembered per browser; on narrow screens it is a
+  // drawer that always starts closed.
+  const [panelOpen, setPanelOpenState] = useState(false);
+  const [panelTab, setPanelTab] = useState<"catalogues" | "recipes">("catalogues");
+  const [panelTarget, setPanelTarget] = useState<string>("");
+  useEffect(() => {
+    let open = true;
+    try { open = localStorage.getItem(PANEL_KEY) !== "closed"; } catch { /* storage unavailable */ }
+    try { if (window.matchMedia("(max-width: 1023px)").matches) open = false; } catch { /* no matchMedia */ }
+    setPanelOpenState(open);
+  }, []);
+  const setPanelOpen = (open: boolean) => {
+    setPanelOpenState(open);
+    try { localStorage.setItem(PANEL_KEY, open ? "open" : "closed"); } catch { /* ignore */ }
+  };
+
+  // Drag and drop (rows reorder; catalogue items insert)
+  const dragRow = useRef<string | null>(null);
+  const [dropHint, setDropHint] = useState<{ id: string; pos: DropPos } | null>(null);
 
   // ---------------------------------------------------------------- persistence
   const run = useCallback(
@@ -171,6 +197,7 @@ export function CostingsGrid(props: {
   const parentsWithKids = useMemo(() => new Set(merged.filter((r) => r.parentId).map((r) => r.parentId!)), [merged]);
   const categories = useMemo(() => childrenOf(merged, null).filter((r) => r.kind === "category"), [merged]);
   const estMarkupPct = totalMarkupPercent(markup);
+  const taxName = /gst/i.test(props.taxLabel) ? "GST" : "Tax";
   const itemRows = merged.filter((r) => r.kind === "item");
   const incomplete = itemRows.filter((r) => r.status !== "Complete").length;
   const allowances = useMemo(() => {
@@ -303,6 +330,63 @@ export function CostingsGrid(props: {
     fn(token);
   };
 
+  /** All catalogue inserts (dialog, panel "+", drag-and-drop) go through the one server action. */
+  const addFromCatalogue = (categoryId: string, picks: { id: string; quantity: number }[], index?: number) => {
+    if (categoryId) expand([categoryId]);
+    setError(null);
+    run(() => addCatalogueItems(estimateId, { categoryId, picks, ...(index !== undefined ? { index } : {}) }));
+  };
+
+  // ---------------------------------------------------------------- drag and drop
+  const dragKind = (e: React.DragEvent): "row" | "catalogue" | null => {
+    const types = Array.from(e.dataTransfer.types);
+    if (types.includes(ROW_MIME) && dragRow.current) return "row";
+    if (types.includes(CATALOGUE_MIME)) return "catalogue";
+    return null;
+  };
+  const resolveDrop = (e: React.DragEvent<HTMLElement>, targetId: string) => {
+    const kind = dragKind(e);
+    if (!kind) return null;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cur = rowsRef.current;
+    const dragId = kind === "row" ? dragRow.current : null;
+    const pos = dropPosition(cur, dragId, targetId, (e.clientY - rect.top) / Math.max(1, rect.height));
+    if (kind === "row") {
+      const dest = resolveRowMove(cur, dragId!, targetId, pos);
+      return dest ? { kind, pos, row: dest } as const : null;
+    }
+    const dest = resolveCatalogueDrop(cur, targetId, pos);
+    return dest ? { kind, pos, cat: dest } as const : null;
+  };
+  const onRowDragOver = (e: React.DragEvent<HTMLTableRowElement>, id: string) => {
+    const d = resolveDrop(e, id);
+    if (!d) {
+      if (dropHint) setDropHint(null);
+      return; // not preventing default = not a drop target
+    }
+    e.preventDefault();
+    e.dataTransfer.dropEffect = d.kind === "row" ? "move" : "copy";
+    if (dropHint?.id !== id || dropHint.pos !== d.pos) setDropHint({ id, pos: d.pos });
+  };
+  const onRowDrop = (e: React.DragEvent<HTMLTableRowElement>, id: string) => {
+    const d = resolveDrop(e, id);
+    setDropHint(null);
+    if (!d) return;
+    e.preventDefault();
+    if (d.kind === "row") {
+      const dragId = dragRow.current!;
+      dragRow.current = null;
+      expand([d.row.parentId]);
+      commit(applyRowMove(rowsRef.current, dragId, d.row));
+      return;
+    }
+    let picked: { id?: unknown } = {};
+    try { picked = JSON.parse(e.dataTransfer.getData(CATALOGUE_MIME)); } catch { /* malformed drag data */ }
+    if (typeof picked.id !== "string") return;
+    addFromCatalogue(d.cat.categoryId, [{ id: picked.id, quantity: 1 }], d.cat.index);
+  };
+  const endDrag = () => { dragRow.current = null; setDropHint(null); };
+
   // ---------------------------------------------------------------- keyboard
   const onGridKey = (e: React.KeyboardEvent) => {
     const t = e.target as HTMLElement;
@@ -376,6 +460,12 @@ export function CostingsGrid(props: {
   const allVisibleSelected = visible.length > 0 && visible.every((id) => selected.has(id));
 
   const categoryOptions = categories.map((c) => ({ id: c.id, label: `${calc.items[c.id]?.number ?? ""}. ${c.description || "Untitled category"}` }));
+  const panelTargetId = categories.some((c) => c.id === panelTarget) ? panelTarget : categories[categories.length - 1]?.id ?? "";
+  const openPanelFor = (categoryId: string | null, tab?: "catalogues" | "recipes") => {
+    if (categoryId) setPanelTarget(categoryId);
+    if (tab) setPanelTab(tab);
+    setPanelOpen(true);
+  };
 
   // ---------------------------------------------------------------- render
   if (rows.length === 0) {
@@ -399,7 +489,7 @@ export function CostingsGrid(props: {
         <CatalogueModal
           open={catalogueOpen}
           onClose={() => setCatalogueOpen(false)}
-          onAdd={(cat, picks) => run(() => addCatalogueItems(estimateId, { categoryId: cat, picks }))}
+          onAdd={(cat, picks) => addFromCatalogue(cat, picks)}
           categories={categoryOptions}
           defaultCategoryId={catalogueTarget}
           catalogues={props.catalogues}
@@ -414,12 +504,21 @@ export function CostingsGrid(props: {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-start gap-4">
+      <div className="min-w-0 flex-1 space-y-4">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         <ToolBtn onClick={() => addCategory(currentRow.current)} primary>+ Category</ToolBtn>
         <ToolBtn onClick={addItemToolbar}>+ Item</ToolBtn>
         <ToolBtn onClick={() => { setCatalogueTarget(currentRow.current ? categoryOf(rowsRef.current, currentRow.current) : null); setCatalogueOpen(true); }}>
           Add from catalogue
+        </ToolBtn>
+        <ToolBtn
+          onClick={() => (panelOpen ? setPanelOpen(false) : openPanelFor(currentRow.current ? categoryOf(rowsRef.current, currentRow.current) : null))}
+          active={panelOpen}
+          pressed={panelOpen}
+        >
+          Catalogue panel
         </ToolBtn>
         <div className="relative">
           <ToolBtn onClick={() => setShowMeasures((v) => !v)} keepFocus active={showMeasures}>
@@ -458,14 +557,14 @@ export function CostingsGrid(props: {
       )}
 
       {/* Grid */}
-      <div ref={tableRef} className="max-h-[calc(100vh-15rem)] min-h-64 overflow-auto rounded-lg border border-ink-200 bg-white shadow-xs" onKeyDown={onGridKey}>
+      <div ref={tableRef} className="max-h-[calc(100vh-15rem)] min-h-64 overflow-auto rounded-lg border border-ink-200 bg-white shadow-xs" onKeyDown={onGridKey} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropHint(null); }}>
         <datalist id="uom-list">
           {uoms.map((u) => <option key={u} value={u} />)}
         </datalist>
         <table className="w-full min-w-[1120px] table-fixed border-separate border-spacing-0 text-[13px]" aria-label="Costings">
           <colgroup>
             <col className="w-8" />
-            <col className="w-16" />
+            <col className="w-20" />
             <col />
             <col className="w-[104px]" />
             <col className="w-14" />
@@ -507,7 +606,13 @@ export function CostingsGrid(props: {
               const sel = selected.has(id);
               const complete = r.status === "Complete";
               const parent = r.parentId ? byId.get(r.parentId) : undefined;
-              const cellBase = cx("border-b border-ink-100 px-1 py-1 align-top", isCat ? "bg-ink-50" : sel ? "bg-brand-50/50" : "bg-white group-hover:bg-ink-50/40");
+              const hint = dropHint?.id === id ? dropHint.pos : null;
+              const cellBase = cx(
+                "border-b border-ink-100 px-1 py-1 align-top",
+                hint === "inside" ? "bg-brand-100" : isCat ? "bg-ink-50" : sel ? "bg-brand-50/50" : "bg-white group-hover:bg-ink-50/40",
+                hint === "before" && "shadow-[inset_0_2px_0_0_var(--color-brand-600)]",
+                hint === "after" && "shadow-[inset_0_-2px_0_0_var(--color-brand-600)]",
+              );
               const b = baseById.get(id) ?? r;
               const qtyExpr = b.quantityExpr ?? (b.quantity ? editNumber(b.quantity, 3) : "");
               const supplier = r.supplierId ? suppliers.find((s) => s.id === r.supplierId) : undefined;
@@ -518,14 +623,35 @@ export function CostingsGrid(props: {
                   className="group"
                   data-testid={`row-${id}`}
                   data-kind={isCat ? "category" : depth === 2 ? "subitem" : "item"}
+                  data-drop={hint ?? undefined}
                   onFocus={() => { currentRow.current = id; }}
+                  onDragOver={(e) => onRowDragOver(e, id)}
+                  onDrop={(e) => onRowDrop(e, id)}
                 >
                   <td className={cellBase}>
                     <input type="checkbox" aria-label={`Select row ${ri.number}`} checked={sel} onChange={() => toggleSel(id)} className="mt-1.5 size-3.5 accent-brand-600" />
                   </td>
                   <td className={cx(cellBase, "pt-2 font-mono text-[11px]", isCat ? "font-semibold text-ink-800" : "text-ink-500")}>
                     <span className="flex items-center gap-1">
-                      {ri.number}
+                      <span
+                        draggable
+                        role="img"
+                        aria-label={`Drag row ${ri.number}`}
+                        title="Drag to move (or use Move up / Move down in the row menu)"
+                        data-testid={`drag-${id}`}
+                        onDragStart={(e) => {
+                          dragRow.current = id;
+                          e.dataTransfer.setData(ROW_MIME, id);
+                          e.dataTransfer.effectAllowed = "move";
+                          const tr = e.currentTarget.closest("tr");
+                          if (tr) e.dataTransfer.setDragImage(tr, 16, 12);
+                        }}
+                        onDragEnd={endDrag}
+                        className="-ml-0.5 cursor-grab select-none text-ink-300 hover:text-ink-600 active:cursor-grabbing"
+                      >
+                        ⠿
+                      </span>
+                      <span>{ri.number}</span>
                       {complete && !isCat && <span title="Marked complete" className="text-emerald-600">✓</span>}
                     </span>
                   </td>
@@ -692,14 +818,35 @@ export function CostingsGrid(props: {
           </tbody>
         </table>
       </div>
+      </div>
 
-      {/* Sticky totals bar */}
-      <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border border-ink-200 bg-white/95 px-4 py-2 text-sm shadow-sm backdrop-blur">
-        <Mini label="Cost" value={money(calc.costTotal)} />
-        <Mini label={`Markup ${fmtPct(estMarkupPct)}`} value={money(calc.markupTotal)} />
-        <Mini label="Tax" value={money(calc.taxTotal)} />
+      <CataloguePanel
+        open={panelOpen}
+        onOpenChange={setPanelOpen}
+        tab={panelTab}
+        onTab={setPanelTab}
+        catalogues={props.catalogues}
+        catalogueCategories={props.catalogueCategories}
+        targets={categoryOptions}
+        target={panelTargetId}
+        onTarget={setPanelTarget}
+        onAdd={(cat, picks) => addFromCatalogue(cat, picks)}
+        onSelectSeveral={() => { setCatalogueTarget(panelTargetId || null); setCatalogueOpen(true); }}
+      />
+      </div>
+
+      {/* Fixed totals bar (live calc result; same numbers as the summary below) */}
+      <div
+        role="region"
+        aria-label="Estimate totals bar"
+        className="sticky bottom-0 z-10 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border border-ink-200 bg-white/95 px-4 py-2 text-sm shadow-sm backdrop-blur"
+      >
+        <Mini label="Sub total (ex)" value={money(calc.costTotal)} testId="bar-cost" />
+        <Mini label="Markup" value={money(calc.markupTotal)} testId="bar-markup" title={`Estimate markup ${fmtPct(estMarkupPct)}`} />
+        <Mini label={`Total ex ${taxName === "GST" ? "GST" : "tax"}`} value={money(calc.subtotalExTax)} testId="bar-subtotal" />
+        <Mini label={taxName} value={money(calc.taxTotal)} testId="bar-tax" title={props.taxLabel} />
         <Mini label="Quote total" value={money(calc.quoteTotal)} strong testId="bar-quote" />
-        <span className={cx("ml-auto text-xs", incomplete ? "text-amber-700" : "text-emerald-700")}>
+        <span className={cx("text-xs sm:ml-auto", incomplete ? "text-amber-700" : "text-emerald-700")}>
           {incomplete ? `${incomplete} row${incomplete === 1 ? "" : "s"} not yet marked complete` : "All rows complete"}
         </span>
       </div>
@@ -740,7 +887,7 @@ export function CostingsGrid(props: {
               case "addBelow": return addSibling(id);
               case "addSub": return addSubItem(id);
               case "addCategory": return addCategory(id);
-              case "catalogue": setCatalogueTarget(categoryOf(cur, id)); return setCatalogueOpen(true);
+              case "catalogue": return openPanelFor(categoryOf(cur, id), "catalogues");
               case "duplicate": return duplicate(id);
               case "up": return commit(moveRow(cur, id, -1));
               case "down": return commit(moveRow(cur, id, 1));
@@ -791,10 +938,11 @@ function Th({ children, right, title }: { children?: ReactNode; right?: boolean;
   );
 }
 
-function ToolBtn({ children, onClick, primary, keepFocus, active }: { children: ReactNode; onClick: () => void; primary?: boolean; keepFocus?: boolean; active?: boolean }) {
+function ToolBtn({ children, onClick, primary, keepFocus, active, pressed }: { children: ReactNode; onClick: () => void; primary?: boolean; keepFocus?: boolean; active?: boolean; pressed?: boolean }) {
   return (
     <button
       type="button"
+      aria-pressed={pressed}
       onMouseDown={keepFocus ? (e) => e.preventDefault() : undefined}
       onClick={onClick}
       className={cx(
@@ -807,9 +955,9 @@ function ToolBtn({ children, onClick, primary, keepFocus, active }: { children: 
   );
 }
 
-function Mini({ label, value, strong, testId }: { label: string; value: string; strong?: boolean; testId?: string }) {
+function Mini({ label, value, strong, testId, title }: { label: string; value: string; strong?: boolean; testId?: string; title?: string }) {
   return (
-    <span className="flex items-baseline gap-1.5">
+    <span className="flex items-baseline gap-1.5" title={title}>
       <span className="text-xs text-ink-500">{label}</span>
       <span className={cx("tabular-nums", strong ? "text-base font-semibold text-ink-900" : "text-ink-800")} data-testid={testId}>{value}</span>
     </span>

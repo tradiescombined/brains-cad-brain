@@ -72,7 +72,7 @@ export function SummaryPanel({
             <Line key={i} label={`${m.name} ${fmtPct(m.percent)}`} value={money(m.amount)} muted />
           ))}
           <Line label="Markup total" value={money(calc.markupTotal)} testId="sum-markup" />
-          <Line label="Subtotal ex tax" value={money(calc.subtotalExTax)} strong />
+          <Line label="Subtotal ex tax" value={money(calc.subtotalExTax)} strong testId="sum-subtotal" />
           <Line label={`Tax (${taxLabel})`} value={money(calc.taxTotal)} testId="sum-tax" />
           <div className="flex items-center justify-between gap-2 py-0.5">
             <dt className="text-ink-600">

@@ -18,7 +18,7 @@ Items marked ★ were added or completed in the fidelity pass (see "Closed in th
 | Navigation & dashboard | 9 | 1 | 0 | 4 |
 | Leads | 5 | 0 | 0 | 0 |
 | Estimates (list, create, header, details) | 26 | 2 | 1 | 3 |
-| Costings | 23 | 2 | 1 | 2 |
+| Costings | 25 | 2 | 1 | 2 |
 | Plans & takeoffs | 13 | 1 | 1 | 1 |
 | Quote options & client acceptance | 22 | 1 | 0 | 0 |
 | Clients | 17 | 0 | 0 | 2 |
@@ -26,7 +26,7 @@ Items marked ★ were added or completed in the fidelity pass (see "Closed in th
 | Catalogues | 12 | 2 | 1 | 2 |
 | Settings / advanced setup | 22 | 2 | 0 | 5 |
 | Integrations | 0 | 1 | 0 | 8 |
-| **Total (209 rows)** | **161** | **15** | **4** | **29** |
+| **Total (211 rows)** | **163** | **15** | **4** | **29** |
 
 Jobs, schedule, invoices, selections and orders were not visible on the captured (Foundation)
 plan; they are covered by our Jobs & money modules (see `docs/SPEC.md`) and not scored here.
@@ -124,8 +124,10 @@ plan; they are covered by our Jobs & money modules (see `docs/SPEC.md`) and not 
 | Named markup lines (Markup 18; Contingency 2) | `markupLines` editor | Match | Totals match reference to the cent |
 | Rounding / rounding adjustment | `rounding` | Match | |
 | Summary by cost type | `SummaryPanel` | Match | |
-| Add from catalogue (search, recipes expand) | `CatalogueModal` | Match | |
-| Inline edit, reorder, indent/outdent, duplicate, delete, collapse, bulk edit | `CostingsGrid` | Match | |
+| Add from catalogue (search, recipes expand) | `CatalogueModal` (multi-select) | Match | |
+| Docked Catalogues / Recipes side panel: search, catalogue → category drill-down, "+" add, drag onto a category/row | `CataloguePanel` (drawer on narrow screens; open state remembered) | Match | Shares `addCatalogueItems` with the dialog |
+| Totals bar: Sub total (ex), Markup, Total ex GST, GST, Quote total | Sticky totals bar in `CostingsGrid` (live `calculate` result) | Match | |
+| Inline edit, reorder, indent/outdent, duplicate, delete, collapse, bulk edit | `CostingsGrid` (+ drag-and-drop row reorder, `src/lib/costings-dnd.ts`) | Match | Move up/down stays as the keyboard alternative |
 | Hidden on quote | `hiddenOnQuote` | Match | |
 | Alternative UOM / order increments / min order qty on items | — | Partial | Not on items or catalogue (see Catalogues) |
 | Franchise fee, calculation method | — | Out of scope | Franchise-only / internal |
