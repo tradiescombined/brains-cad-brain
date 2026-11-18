@@ -17,7 +17,7 @@ swiftc -O "$HERE/main.swift" -o "$APP/Contents/MacOS/$NAME" -framework Cocoa -fr
 
 # icon
 ICONSET="$BUILD/AppIcon.iconset"; mkdir -p "$ICONSET"
-swift "$HERE/make-icon.swift" "$BUILD/icon-1024.png"
+swift "$HERE/make-icon.swift" "$ROOT/public/logo.svg" "$BUILD/icon-1024.png"
 for s in 16 32 128 256 512; do
   sips -z $s $s "$BUILD/icon-1024.png" --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
   d=$((s*2)); sips -z $d $d "$BUILD/icon-1024.png" --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null

@@ -31,15 +31,15 @@ export function Sidebar({
       </div>
       <aside
         className={cx(
-          "no-print fixed inset-y-0 left-0 z-30 w-60 shrink-0 flex-col border-r border-ink-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen",
+          "no-print fixed inset-y-0 left-0 z-30 w-60 shrink-0 flex-col border-r border-black/40 bg-[#292929] lg:sticky lg:top-0 lg:flex lg:h-screen",
           open ? "flex pt-12" : "hidden",
         )}
       >
-        <div className="hidden px-5 py-4 lg:block"><Brand /></div>
+        <div className="hidden px-5 py-4 lg:block"><Brand dark /></div>
         <nav className="flex-1 overflow-y-auto px-3 pb-4">
           {nav.map((g) => (
             <div key={g.section} className="mt-4 first:mt-1">
-              <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-400">{g.section}</div>
+              <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-500">{g.section}</div>
               {g.items.map((it) => {
                 const active = path === it.href || path.startsWith(it.href + "/");
                 return (
@@ -49,10 +49,10 @@ export function Sidebar({
                     onClick={() => setOpen(false)}
                     className={cx(
                       "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm font-medium",
-                      active ? "bg-brand-50 text-brand-800" : "text-ink-600 hover:bg-ink-100 hover:text-ink-900",
+                      active ? "bg-brand-500 text-white" : "text-ink-300 hover:bg-white/10 hover:text-white",
                     )}
                   >
-                    <span className="w-4 text-center text-ink-400" aria-hidden>{it.icon}</span>
+                    <span className={cx("w-4 text-center", active ? "text-white" : "text-ink-400")} aria-hidden>{it.icon}</span>
                     {it.label}
                   </Link>
                 );
@@ -60,23 +60,23 @@ export function Sidebar({
             </div>
           ))}
         </nav>
-        <div className="border-t border-ink-100 px-4 py-3" data-testid="signed-in-user">
+        <div className="border-t border-white/10 px-4 py-3" data-testid="signed-in-user">
           {user && (
             <div className="flex items-center gap-2.5">
               {showUserButton ? (
                 <UserButton appearance={{ elements: { avatarBox: { width: "2rem", height: "2rem" } } }} />
               ) : (
-                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-50 text-xs font-semibold text-brand-800" aria-hidden>
+                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-500 text-xs font-semibold text-white" aria-hidden>
                   {user.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}
                 </span>
               )}
               <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-ink-900" title={user.email}>{user.name}</div>
-                <div className="truncate text-xs text-ink-500">{user.role}</div>
+                <div className="truncate text-sm font-medium text-white" title={user.email}>{user.name}</div>
+                <div className="truncate text-xs text-ink-400">{user.role}</div>
               </div>
             </div>
           )}
-          <div className={cx("truncate text-xs text-ink-500", user && "mt-2")}>{businessName}</div>
+          <div className={cx("truncate text-xs text-ink-400", user && "mt-2")}>{businessName}</div>
         </div>
       </aside>
     </>

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Brains Cad Brain logo: an orange brain wearing glasses on Tradies Combined charcoal. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#363636"/>
+      <stop offset="1" stop-color="#1f1f1f"/>
+    </linearGradient>
+    <linearGradient id="brain" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6984d"/>
+      <stop offset="1" stop-color="#e2731d"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <g transform="translate(0 30)">
+    <!-- brain silhouette -->
+    <g fill="url(#brain)">
+      <circle cx="352" cy="420" r="150"/>
+      <circle cx="470" cy="330" r="150"/>
+      <circle cx="610" cy="340" r="145"/>
+      <circle cx="700" cy="460" r="140"/>
+      <circle cx="320" cy="560" r="125"/>
+      <circle cx="450" cy="580" r="140"/>
+      <circle cx="590" cy="590" r="140"/>
+      <circle cx="705" cy="580" r="118"/>
+    </g>
+    <!-- folds -->
+    <g fill="none" stroke="#b5560f" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M512 215 C 495 290, 530 360, 512 440"/>
+      <path d="M300 410 C 330 360, 400 370, 410 430"/>
+      <path d="M390 300 C 420 330, 455 330, 470 290"/>
+      <path d="M600 260 C 640 290, 650 340, 620 380"/>
+      <path d="M720 400 C 680 420, 670 450, 700 480"/>
+      <path d="M560 420 C 590 450, 640 445, 660 410"/>
+      <path d="M380 470 C 420 455, 455 470, 470 440"/>
+    </g>
+    <!-- glasses -->
+    <g stroke="#1f1f1f" stroke-width="34" stroke-linecap="round">
+      <path d="M318 548 L238 505" fill="none"/>
+      <path d="M706 548 L786 505" fill="none"/>
+      <path d="M495 560 Q512 530 529 560" fill="none"/>
+      <circle cx="405" cy="575" r="98" fill="#fff8f2"/>
+      <circle cx="619" cy="575" r="98" fill="#fff8f2"/>
+    </g>
+    <circle cx="425" cy="590" r="34" fill="#1f1f1f"/>
+    <circle cx="639" cy="590" r="34" fill="#1f1f1f"/>
+    <circle cx="437" cy="577" r="11" fill="#fff"/>
+    <circle cx="651" cy="577" r="11" fill="#fff"/>
+  </g>
+</svg>

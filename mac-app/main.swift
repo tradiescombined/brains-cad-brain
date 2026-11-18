@@ -77,7 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     }
 
     func statusPage(_ title: String, _ body: String) -> String {
-        "<html><head><meta charset=utf-8></head><body style='font-family:-apple-system;background:#1f2328;color:#eee;display:flex;align-items:center;justify-content:center;height:96vh'><div style='max-width:680px;text-align:center'><h2 style='color:#4ea1ff'>\(title)</h2><div>\(body)</div></div></body></html>"
+        "<html><head><meta charset=utf-8></head><body style='font-family:-apple-system;background:#292929;color:#eee;display:flex;align-items:center;justify-content:center;height:96vh'><div style='max-width:680px;text-align:center'><h2 style='color:#f0822c'>\(title)</h2><div>\(body)</div></div></body></html>"
     }
 
     func updateTitle() {

@@ -4,17 +4,17 @@
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
-  /* Brand: deep teal "brain" */
-  --color-brand-50: #effcf9;
-  --color-brand-100: #c8f5ec;
-  --color-brand-200: #92eadb;
-  --color-brand-300: #55d7c5;
-  --color-brand-400: #26bcab;
-  --color-brand-500: #0fa092;
-  --color-brand-600: #0a8077;
-  --color-brand-700: #0d6661;
-  --color-brand-800: #10514e;
-  --color-brand-900: #124441;
+  /* Brand: Tradies Combined orange (#f0822c) */
+  --color-brand-50: #fff5ec;
+  --color-brand-100: #ffe7d3;
+  --color-brand-200: #fdcca3;
+  --color-brand-300: #f9ab6b;
+  --color-brand-400: #f4943f;
+  --color-brand-500: #f0822c;
+  --color-brand-600: #e2731d;
+  --color-brand-700: #c25e12;
+  --color-brand-800: #9a4a12;
+  --color-brand-900: #7c3d13;
 
   /* Neutral ink (slate-ish) */
   --color-ink-50: #f7f8fa;

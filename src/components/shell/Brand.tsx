@@ -1,20 +1,14 @@
 import Link from "next/link";
 import { cx } from "@/lib/format";
 
-/** "Brains Cad Brain" wordmark (sidebar, sign-in pages). */
-export function Brand({ size = "sm", href = "/dashboard" }: { size?: "sm" | "lg"; href?: string }) {
+/** "Brains Cad Brain" logo (brain with glasses) + wordmark (sidebar, sign-in pages). `dark` = on the charcoal sidebar. */
+export function Brand({ size = "sm", href = "/dashboard", dark = false }: { size?: "sm" | "lg"; href?: string; dark?: boolean }) {
   const lg = size === "lg";
   return (
     <Link href={href} className="flex items-center gap-2">
-      <span
-        className={cx(
-          "grid place-items-center rounded-md bg-brand-600 font-bold text-white",
-          lg ? "size-10 text-lg" : "size-7 text-sm",
-        )}
-      >
-        B
-      </span>
-      <span className={cx("font-semibold leading-tight text-ink-900", lg ? "text-xl" : "text-sm")}>Brains Cad Brain</span>
+      {/* eslint-disable-next-line @next/next/no-img-element -- static SVG logo */}
+      <img src="/logo.svg" alt="" className={cx("shrink-0", lg ? "size-10" : "size-8")} />
+      <span className={cx("font-semibold leading-tight", dark ? "text-white" : "text-ink-900", lg ? "text-xl" : "text-sm")}>Brains Cad Brain</span>
     </Link>
   );
 }
