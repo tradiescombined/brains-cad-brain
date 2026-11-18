@@ -11,12 +11,14 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:reset": "rm -f data/bcb.db && drizzle-kit push --force && tsx scripts/seed.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "e2e": "for f in e2e/*.e2e.mjs; do echo \"== $f\"; node $f || exit 1; done"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.6",
+    "pdfjs-dist": "^6.5.438",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "^0.0.1",
@@ -30,6 +32,7 @@
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
+    "playwright-core": "^1.65.1",
     "tailwindcss": "4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^5",
