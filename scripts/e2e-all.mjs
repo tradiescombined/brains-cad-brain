@@ -25,7 +25,9 @@ const bin = (name) => path.join(root, "node_modules", ".bin", name);
 const tmp = mkdtempSync(path.join(tmpdir(), "bcb-e2e-"));
 const dbUrl = `file:${path.join(tmp, "bcb.db")}`;
 // BCB_AUTH_BYPASS: suites run without real Google/Apple OAuth (see README). auth.e2e.mjs skips itself.
-const env = { ...process.env, DATABASE_URL: dbUrl, NEXT_TELEMETRY_DISABLED: "1", BCB_AUTH_BYPASS: "1" };
+// `next start` is a production build, where the bypass is only honoured with BCB_ALLOW_TEST_BYPASS=1 as
+// well (src/lib/auth-bypass.ts).
+const env = { ...process.env, DATABASE_URL: dbUrl, NEXT_TELEMETRY_DISABLED: "1", BCB_AUTH_BYPASS: "1", BCB_ALLOW_TEST_BYPASS: "1" };
 delete env.DATABASE_AUTH_TOKEN; // never point a test run at a hosted DB
 
 let server = null;
