@@ -44,5 +44,9 @@ data/*.db*
 !.env.example
 .claude/
 
+# self-hosting (npm run backup / serve)
+/backups/
+/logs/
+
 # clerk configuration (can include secrets)
 /.clerk/

@@ -2,7 +2,21 @@
   "name": "brains-cad-brain",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "serve": "node scripts/serve.mjs",
+    "update": "node scripts/update.mjs",
+    "backup": "node scripts/backup.mjs",
+    "restore": "node scripts/restore.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "service:install": "node scripts/service.mjs install",
+    "service:uninstall": "node scripts/service.mjs uninstall",
+    "service:start": "node scripts/service.mjs start",
+    "service:stop": "node scripts/service.mjs stop",
+    "service:status": "node scripts/service.mjs status",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

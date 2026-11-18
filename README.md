@@ -13,7 +13,17 @@ npm run db:reset      # creates data/bcb.db with sample data
 npm run dev           # http://localhost:3000
 ```
 
-Production: `npx next build && npx next start -p 3000`.
+**Run it as a server** on your own Mac, Windows PC or Linux box (install from GitHub, sign-in, auto-start,
+updates, backups): see **[docs/SELF-HOSTING.md](docs/SELF-HOSTING.md)**. In short:
+
+```bash
+npm run setup     # install, .env, database (never wipes data), build — safe to re-run
+npm run serve     # production server on PORT (default 3000), logs in logs/
+npm run doctor    # health check
+npm run update    # backup, git pull, migrate, rebuild
+npm run backup    # snapshot to backups/  (npm run restore -- <file> to restore)
+npm run service:install   # auto-start on boot + nightly backup (launchd / systemd / Task Scheduler)
+```
 
 ## Sign-in (Google and Apple via Clerk)
 
@@ -47,30 +57,10 @@ and env vars) — keep only the two `*_CLERK_*_KEY` lines it adds to `.env.local
 copy the two key lines across. Claim the instance later with `npx clerk auth login`. Without keys,
 use the test bypass below.
 
-**Production setup checklist**
-
-1. **Clerk dashboard** (dashboard.clerk.com): create an application (or claim the keyless one via the
-   "Configure your application" prompt in dev). Under *User & authentication → SSO connections* enable
-   **Google** and **Apple**; under *Email, phone, username* you may turn off password sign-in so
-   social is the only way in. Create the **Production instance**, add your domain, and add the DNS
-   records Clerk lists. Set the application name (shown as "Sign in to <name>") to your business name.
-2. **Google** (Google Cloud Console → APIs & Services): configure the OAuth consent screen
-   (External, app name, support email, your domain), then *Credentials → Create OAuth client ID →
-   Web application* with the **Authorized redirect URI** Clerk shows on the Google connection page.
-   Paste the Client ID and secret into Clerk's Google connection ("Use custom credentials").
-3. **Apple** (developer.apple.com → Certificates, IDs & Profiles; needs a paid Apple Developer
-   account): create an **App ID** with *Sign in with Apple*; create a **Services ID** (this is the
-   client ID) with Sign in with Apple configured — primary App ID, your domain, and the **Return URL**
-   Clerk shows; create a **Key** with Sign in with Apple enabled and download the `.p8`. In Clerk's
-   Apple connection enter the Services ID, Team ID, Key ID and the `.p8` contents. (Apple users who
-   choose *Hide my email* get a `@privaterelay.appleid.com` address — invite that address, or ask them
-   to share their real email.)
-4. **Env vars** on the host (see `.env.example`): `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (pk_live_…),
-   `CLERK_SECRET_KEY` (sk_live_…), `NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`,
-   `NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up`, `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/dashboard`,
-   `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/dashboard`, optionally `BCB_OWNER_EMAIL`.
-   Never set `BCB_AUTH_BYPASS` in production.
-5. Deploy, sign in as the owner first, then add your team in Settings → Users.
+**Production / self-hosting:** the Clerk production instance, Google and Apple setup checklist,
+domain + HTTPS (Cloudflare Tunnel) and the `.env` settings are in
+[`docs/SELF-HOSTING.md` → Sign-in](docs/SELF-HOSTING.md#6-sign-in-choose-option-a-or-b).
+Never set `BCB_AUTH_BYPASS` (or `BCB_ALLOW_TEST_BYPASS`) on a server.
 
 ## Tests
 
@@ -82,7 +72,7 @@ npm test              # unit tests (vitest)
 npm run e2e:all                      # add -- --skip-build to reuse .next, or -- leads quote to filter
 # or against a running server (pass the same DATABASE_URL the server uses):
 # browser tests (real Chrome, headless) against a running server started with the test bypass:
-npx next build && BCB_AUTH_BYPASS=1 npx next start -p 3000
+npx next build && BCB_AUTH_BYPASS=1 BCB_ALLOW_TEST_BYPASS=1 npx next start -p 3000
 BASE_URL=http://localhost:3000 npm run e2e
 # sign-in gate test, against a server WITHOUT the bypass, with Clerk dev keys in .env.local (see above):
 npx next dev -p 3402 & BASE_URL=http://localhost:3402 node e2e/auth.e2e.mjs
@@ -93,8 +83,11 @@ one database, so each creates its own uniquely named records (`RUN` in `e2e/help
 seed records (it clones them with `cloneEstimate` instead), and purges what it created. No route stubs or
 console-error filters.
 `BCB_AUTH_BYPASS=1` (server env) turns sign-in off and makes `getCurrentUser()` return the first
-active Owner, so the suites run without real Google/Apple OAuth. It is ignored when
-`NODE_ENV=production` and `VERCEL` are both set (i.e. on a deployed Vercel site). `e2e/auth.e2e.mjs`
+active Owner, so the suites run without real Google/Apple OAuth. Under `next dev` that one variable is
+enough; a production build (`next start`, NODE_ENV=production) also needs `BCB_ALLOW_TEST_BYPASS=1`, so
+it can't be switched on by accident on a server (`npm run e2e:all` sets both). It is always ignored on a
+deployed Vercel site (`NODE_ENV=production` + `VERCEL`), and `npm run serve` refuses to start if either
+variable is set. `e2e/auth.e2e.mjs`
 skips itself, with a message, when the bypass is on or Clerk is unreachable.
 
 `e2e/integration.e2e.mjs` crawls every page and fails on any 404/500 or console error;

@@ -118,7 +118,9 @@ describe("authBypassEnabled", () => {
   it("is off unless BCB_AUTH_BYPASS=1", () => {
     expect(authBypassEnabled({})).toBe(false);
     expect(authBypassEnabled({ BCB_AUTH_BYPASS: "true" })).toBe(false);
-    expect(authBypassEnabled({ BCB_AUTH_BYPASS: "1", NODE_ENV: "production" })).toBe(true);
+    // A production build also needs BCB_ALLOW_TEST_BYPASS=1 (full matrix in auth-bypass.test.ts).
+    expect(authBypassEnabled({ BCB_AUTH_BYPASS: "1", NODE_ENV: "production" })).toBe(false);
+    expect(authBypassEnabled({ BCB_AUTH_BYPASS: "1", NODE_ENV: "production", BCB_ALLOW_TEST_BYPASS: "1" })).toBe(true);
   });
   it("is refused on a deployed Vercel production site", () => {
     expect(authBypassEnabled({ BCB_AUTH_BYPASS: "1", NODE_ENV: "production", VERCEL: "1" })).toBe(false);

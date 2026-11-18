@@ -42,7 +42,8 @@ const clerk = clerkMiddleware(async (auth, req) => {
 });
 
 export function proxy(req: NextRequest, event: NextFetchEvent) {
-  // Test-only bypass (BCB_AUTH_BYPASS=1; refused on deployed Vercel sites). See src/lib/auth-bypass.ts.
+  // Test-only bypass (BCB_AUTH_BYPASS=1, plus BCB_ALLOW_TEST_BYPASS=1 in a production build; never on
+  // deployed Vercel sites). See src/lib/auth-bypass.ts.
   if (authBypassEnabled()) return NextResponse.next();
   return clerk(req, event);
 }
