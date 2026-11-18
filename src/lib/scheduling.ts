@@ -279,6 +279,73 @@ export function sequentialChain(names: { name: string; durationDays: number }[],
   return out;
 }
 
+/**
+ * Gives every task a fresh id and rewrites `dependsOn` to the new ids. Links to tasks outside the
+ * set (or to the task itself) are dropped. Input is not mutated. Order is preserved.
+ */
+export function remapTaskIds<T extends { id: string; dependsOn: string[] }>(tasks: T[], makeId: () => string) {
+  const idMap = new Map<string, string>();
+  for (const t of tasks) if (!idMap.has(t.id)) idMap.set(t.id, makeId());
+  const out = tasks.map((t) => ({
+    ...t,
+    id: idMap.get(t.id)!,
+    dependsOn: [...new Set(t.dependsOn.filter((d) => d !== t.id && idMap.has(d)).map((d) => idMap.get(d)!))],
+  }));
+  return { tasks: out, idMap };
+}
+
+/** Earliest working day any task occupies (null for an empty schedule). */
+export function scheduleStart(tasks: Pick<SchedTask, "startDate">[]): string | null {
+  let min: string | null = null;
+  for (const t of tasks) {
+    const s = taskStart(t);
+    if (!min || s < min) min = s;
+  }
+  return min;
+}
+
+/**
+ * Shifts the whole schedule (in working days, links and lags intact) so its earliest task starts
+ * on `start` (snapped forward to a working day).
+ */
+export function offsetScheduleTo<T extends SchedTask>(tasks: T[], start: string): T[] {
+  const first = scheduleStart(tasks);
+  if (!first) return tasks.map((t) => ({ ...t }));
+  return shiftSchedule(tasks, workingDaysBetween(first, snapToWorkingDay(start)));
+}
+
+/**
+ * Copies a planned schedule (e.g. an estimate's) into new tasks: fresh ids, remapped dependencies,
+ * and — when `start` is given — offset so the first task starts on that date. Without a start the
+ * planned dates are kept (snapped to working days).
+ */
+export function copySchedule<T extends SchedTask>(tasks: T[], start: string | null | undefined, makeId: () => string): T[] {
+  const { tasks: remapped } = remapTaskIds(tasks, makeId);
+  if (start) return offsetScheduleTo(remapped, start);
+  return remapped.map((t) => ({ ...t, startDate: taskStart(t) }));
+}
+
+/**
+ * Validates and applies an add/edit of one task against the current schedule.
+ * Rejects dependency loops; snaps the start to a working day; pushes the task after its
+ * predecessors and re-schedules dependants (preserving lags). `edit.id` empty = new task.
+ */
+export function planTaskSave(
+  before: SchedTask[],
+  edit: { id?: string | null; newId: string; startDate: string; durationDays: number; dependsOn: string[] },
+): { ok: false; error: string } | { ok: true; id: string; preds: string[]; final: SchedTask; tasks: SchedTask[]; moved: string[] } {
+  const id = edit.id || null;
+  if (id && !before.some((t) => t.id === id)) return { ok: false, error: "Task not found." };
+  const ids = new Set(before.map((t) => t.id));
+  const preds = [...new Set(edit.dependsOn)].filter((p) => ids.has(p) && p !== id);
+  const taskId = id ?? edit.newId;
+  if (id && wouldCreateCycle(before, taskId, preds)) return { ok: false, error: "Those predecessors would create a loop (a task can't depend on its own successors)." };
+  const edited = { id: taskId, startDate: snapToWorkingDay(edit.startDate), durationDays: normaliseDuration(edit.durationDays), dependsOn: preds };
+  const after = id ? before.map((t) => (t.id === id ? edited : t)) : [...before, edited];
+  const { tasks, moved } = rescheduleDependants(before, after, [taskId]);
+  return { ok: true, id: taskId, preds, final: tasks.find((t) => t.id === taskId)!, tasks, moved };
+}
+
 export interface ScheduleSummary {
   start: string | null;
   finish: string | null;

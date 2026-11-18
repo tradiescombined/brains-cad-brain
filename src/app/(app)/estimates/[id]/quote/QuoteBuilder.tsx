@@ -96,9 +96,10 @@ export function QuoteBuilder({
           </div>
         </Panel>
 
-        <Panel title="Specifications & acceptance">
+        <Panel title="Specifications, schedule & acceptance">
           {toggle("printSpecifications", "Specifications")}
           <div className="pl-6">{toggle("printSpecificationNumbers", "Section numbers", !o.printSpecifications)}</div>
+          {toggle("printSchedule", "Schedule summary (tasks and dates)")}
           {toggle("printInitialsArea", "Client initials on every page")}
         </Panel>
 

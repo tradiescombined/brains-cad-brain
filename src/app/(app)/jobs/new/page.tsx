@@ -1,6 +1,6 @@
 import { requirePermission } from "@/lib/permissions";
 import { db, schema } from "@/db";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
 import { Card, PageHeader } from "@/components/ui";
 import { getLookups } from "@/lib/settings";
 import { todayIso } from "@/lib/format";
@@ -19,9 +19,14 @@ export default async function NewJobPage({ searchParams }: { searchParams: Promi
   const accepted = new Set((await getLookups("estimate_status")).filter((l) => l.flag).map((l) => l.name));
   const live = await db.select({ id: schema.jobs.id }).from(schema.jobs).where(eq(schema.jobs.archived, false));
   const liveIds = new Set(live.map((j) => j.id));
+  const taskCounts = await db
+    .select({ estimateId: schema.estimateTasks.estimateId, n: count() })
+    .from(schema.estimateTasks)
+    .groupBy(schema.estimateTasks.estimateId);
+  const scheduleCount = new Map(taskCounts.map((t) => [t.estimateId, t.n]));
   const available = ests
     .filter((e) => !e.jobId || !liveIds.has(e.jobId) || e.id === sp.estimateId)
-    .map((e) => ({ ...e, accepted: accepted.has(e.status), hasJob: !!e.jobId && liveIds.has(e.jobId) }))
+    .map((e) => ({ ...e, accepted: accepted.has(e.status), hasJob: !!e.jobId && liveIds.has(e.jobId), scheduleCount: scheduleCount.get(e.id) ?? 0 }))
     .sort((a, b) => Number(b.accepted) - Number(a.accepted));
   const clients = await db.select({ id: schema.clients.id, name: schema.clients.name }).from(schema.clients).where(eq(schema.clients.archived, false)).orderBy(asc(schema.clients.name));
   const mode = sp.mode === "blank" || (!sp.estimateId && available.length === 0) ? "blank" : "estimate";

@@ -38,10 +38,15 @@ async function loadGraph(estimateId: string): Promise<EstimateGraph> {
   const plans = await db.select().from(schema.plans).where(eq(schema.plans.estimateId, estimateId)).orderBy(asc(schema.plans.sortOrder));
   const measurements = await db.select().from(schema.measurements).where(eq(schema.measurements.estimateId, estimateId));
   const [qo] = await db.select().from(schema.quoteOptions).where(eq(schema.quoteOptions.estimateId, estimateId));
-  return { items, specifications, plans, measurements, quoteOptions: qo ?? null };
+  const tasks = await loadTaskRows(estimateId);
+  return { items, specifications, plans, measurements, quoteOptions: qo ?? null, tasks };
 }
 
-/** Deep-copies items (tree), specifications, quote options, plans and measurements from one estimate to another. */
+function loadTaskRows(estimateId: string) {
+  return db.select().from(schema.estimateTasks).where(eq(schema.estimateTasks.estimateId, estimateId)).orderBy(asc(schema.estimateTasks.sortOrder));
+}
+
+/** Deep-copies items (tree), specifications, quote options, plans, measurements and schedule tasks from one estimate to another. */
 export async function copyEstimateContent(sourceId: string, targetId: string) {
   const g = copyEstimateGraph(await loadGraph(sourceId), targetId);
   await db.transaction(async (tx) => {
@@ -50,6 +55,7 @@ export async function copyEstimateContent(sourceId: string, targetId: string) {
     for (const c of chunk(g.items)) await tx.insert(schema.estimateItems).values(c);
     for (const c of chunk(g.specifications)) await tx.insert(schema.specifications).values(c);
     if (g.quoteOptions) await tx.insert(schema.quoteOptions).values(g.quoteOptions);
+    for (const c of chunk(g.tasks)) await tx.insert(schema.estimateTasks).values(c);
   });
   await recalcEstimate(targetId);
 }
@@ -90,6 +96,7 @@ export async function deleteEstimateCascade(id: string) {
     await tx.delete(schema.estimateItems).where(eq(schema.estimateItems.estimateId, id));
     await tx.delete(schema.specifications).where(eq(schema.specifications.estimateId, id));
     await tx.delete(schema.quoteOptions).where(eq(schema.quoteOptions.estimateId, id));
+    await tx.delete(schema.estimateTasks).where(eq(schema.estimateTasks.estimateId, id));
     await tx.delete(schema.measurements).where(eq(schema.measurements.estimateId, id));
     await tx.delete(schema.plans).where(eq(schema.plans.estimateId, id));
     await tx.delete(schema.estimateVersions).where(eq(schema.estimateVersions.estimateId, id));
@@ -106,7 +113,7 @@ export async function captureVersion(estimateId: string, label: string) {
   if (!est) return null;
   const items = await db.select().from(schema.estimateItems).where(eq(schema.estimateItems.estimateId, estimateId)).orderBy(asc(schema.estimateItems.sortOrder));
   const specs = await db.select().from(schema.specifications).where(eq(schema.specifications.estimateId, estimateId)).orderBy(asc(schema.specifications.sortOrder));
-  const snap = buildSnapshot(est, items, specs);
+  const snap = buildSnapshot(est, items, specs, new Date(), await loadTaskRows(estimateId));
   const [v] = await db
     .insert(schema.estimateVersions)
     .values({ estimateId, label, snapshot: JSON.stringify(snap), quoteTotal: est.quoteTotal })
@@ -141,6 +148,10 @@ export async function restoreVersion(versionId: string): Promise<RestoreResult> 
     await tx.delete(schema.specifications).where(eq(schema.specifications.estimateId, v.estimateId));
     for (const c of chunk(plan.items)) await tx.insert(schema.estimateItems).values(c);
     for (const c of chunk(plan.specifications)) await tx.insert(schema.specifications).values(c);
+    if (plan.tasks) {
+      await tx.delete(schema.estimateTasks).where(eq(schema.estimateTasks.estimateId, v.estimateId));
+      for (const c of chunk(plan.tasks)) await tx.insert(schema.estimateTasks).values(c);
+    }
     if (Object.keys(plan.estimatePatch).length) {
       await tx.update(schema.estimates).set(plan.estimatePatch as Partial<EstimateRow>).where(eq(schema.estimates.id, v.estimateId));
     }

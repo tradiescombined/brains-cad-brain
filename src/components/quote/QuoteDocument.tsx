@@ -37,6 +37,8 @@ export function QuoteDocument({ model, options: o, className }: { model: QuoteMo
   const view = buildQuoteView(model, o);
   const validUntil = addDaysIso(model.issueDate, o.validDays);
   const specNumbers = numberTree(model.specs);
+  const schedule = model.schedule ?? [];
+  const showSchedule = o.printSchedule && schedule.length > 0;
   const showSpecs = o.printSpecifications && (model.specs.length > 0 || !!model.specIntro?.trim() || model.inclusions.length > 0);
   const itemCols = (o.printQuantities ? 1 : 0) + (o.printUnitMeasures ? 1 : 0);
   const cols = itemCols;
@@ -250,6 +252,39 @@ export function QuoteDocument({ model, options: o, className }: { model: QuoteMo
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {/* Schedule summary */}
+      {showSchedule && (
+        <section className="mt-8" data-testid="quote-schedule">
+          <SectionTitle colour={c}>Proposed schedule</SectionTitle>
+          <p className="mb-2 text-[11.5px] text-ink-600">
+            Estimated {formatIsoDate(schedule.reduce((m, s) => (s.start < m ? s.start : m), schedule[0].start))} to{" "}
+            {formatIsoDate(schedule.reduce((m, s) => (s.finish > m ? s.finish : m), schedule[0].finish))}, subject to approvals, weather and site conditions.
+          </p>
+          <table className="w-full border-collapse text-[11.5px]">
+            <thead>
+              <tr className="border-b border-ink-300 text-left text-[10.5px] uppercase tracking-wider text-ink-500">
+                <th className="py-1 pr-2 font-semibold">#</th>
+                <th className="py-1 pr-2 font-semibold">Task</th>
+                <th className="py-1 pr-2 font-semibold">Start</th>
+                <th className="py-1 pr-2 font-semibold">Finish</th>
+                <th className="py-1 text-right font-semibold">Working days</th>
+              </tr>
+            </thead>
+            <tbody>
+              {schedule.map((s, i) => (
+                <tr key={s.id} className="border-b border-ink-100" data-schedule-task={s.name}>
+                  <td className="py-1 pr-2 tabular-nums text-ink-500">{i + 1}</td>
+                  <td className="py-1 pr-2">{s.name}</td>
+                  <td className="whitespace-nowrap py-1 pr-2 tabular-nums">{formatIsoDate(s.start)}</td>
+                  <td className="whitespace-nowrap py-1 pr-2 tabular-nums">{formatIsoDate(s.finish)}</td>
+                  <td className="py-1 text-right tabular-nums">{s.durationDays}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       )}
 

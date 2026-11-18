@@ -110,6 +110,7 @@ skips itself, with a message, when the bypass is on or Clerk is unreachable.
 | Plans & takeoffs | `/estimates/[id]/takeoffs` | `.../takeoffs`, `src/lib/geometry.ts` |
 | Costings | `/estimates/[id]/costings` | `.../costings`, `src/lib/calc.ts`, `src/lib/expr.ts` |
 | Specifications & quote, client acceptance | `/estimates/[id]/specifications`, `/quote`, `/q/[token]` | `src/components/quote` |
+| Estimate schedule (quote-stage plan → job schedule) | `/estimates/[id]/schedule` | `.../schedule`, `src/app/(app)/schedule/_lib/TaskEditor.tsx`, `src/lib/scheduling.ts` |
 | Catalogues & recipes | `/catalogues` | `src/app/(app)/catalogues` |
 | Jobs, schedule, costs, timesheets, selections | `/jobs`, `/schedule` | `src/app/(app)/jobs`, `src/lib/scheduling.ts`, `src/lib/job-finance.ts` |
 | Orders, variations, invoices | `/orders`, `/invoices`, job tabs | `src/lib/money-docs.ts` |

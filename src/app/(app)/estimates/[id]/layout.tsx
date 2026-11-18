@@ -46,6 +46,7 @@ export default async function EstimateLayout({ children, params }: { children: R
           { seg: "takeoffs", label: "Plans & takeoffs" },
           { seg: "costings", label: "Costings" },
           { seg: "specifications", label: "Specifications" },
+          { seg: "schedule", label: "Schedule" },
           { seg: "quote", label: "Quote" },
         ]}
       />

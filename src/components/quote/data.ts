@@ -6,6 +6,7 @@ import { getSettings } from "@/lib/settings";
 import { joinAddress, quoteIssueDate } from "@/lib/merge-fields";
 import { todayIso } from "@/lib/format";
 import { fromRows } from "./spec-tree";
+import { normaliseDuration, taskFinish, taskStart } from "@/lib/scheduling";
 import { DEFAULT_COVER_LETTER, DEFAULT_TERMS, DEFAULT_QUOTE_TITLE } from "./defaults";
 import type { QuoteCategory, QuoteModel, QuoteOptionValues, QuoteLine, AllowanceKind } from "./model";
 
@@ -37,7 +38,7 @@ export function toOptionValues(r: QuoteOptionsRow): QuoteOptionValues {
     printCategoryTotals: r.printCategoryTotals, categoryTotalsIncludeTax: r.categoryTotalsIncludeTax, printItems: r.printItems,
     printQuantities: r.printQuantities, printUnitMeasures: r.printUnitMeasures, printItemTotals: r.printItemTotals,
     printZeroDollarItems: r.printZeroDollarItems, printSpecifications: r.printSpecifications,
-    printSpecificationNumbers: r.printSpecificationNumbers, printInitialsArea: r.printInitialsArea, showMarkup: r.showMarkup,
+    printSpecificationNumbers: r.printSpecificationNumbers, printInitialsArea: r.printInitialsArea, printSchedule: r.printSchedule, showMarkup: r.showMarkup,
     pcPrintOption: r.pcPrintOption, psPrintOption: r.psPrintOption,
   };
 }
@@ -106,6 +107,11 @@ export async function loadQuoteModel(estimateId: string, options?: QuoteOptionsR
   }
 
   const specRows = await loadSpecRows(estimateId);
+  const taskRows = await db
+    .select()
+    .from(schema.estimateTasks)
+    .where(eq(schema.estimateTasks.estimateId, estimateId))
+    .orderBy(asc(schema.estimateTasks.sortOrder), asc(schema.estimateTasks.startDate));
   const taxRow = l.taxRateRow;
   const pct = Math.round((taxRow?.rate ?? 0) * 10000) / 100;
   const taxLabel = taxRow ? `${/gst/i.test(taxRow.code) ? "GST" : taxRow.code} (${pct}%)` : "Tax";
@@ -152,6 +158,7 @@ export async function loadQuoteModel(estimateId: string, options?: QuoteOptionsR
       .filter((i) => i.kind === "item" && i.showInSpecification)
       .sort((a, b) => (r.order.indexOf(a.id) - r.order.indexOf(b.id)))
       .map((i) => ({ id: i.id, description: i.description || "Untitled item", quantity: r.items[i.id]?.quantity ?? i.quantity, uom: i.uom, notes: i.notes })),
+    schedule: taskRows.map((t) => ({ id: t.id, name: t.name, start: taskStart(t), finish: taskFinish(t), durationDays: normaliseDuration(t.durationDays) })),
     acceptance: opts.acceptanceSignedAt && opts.acceptanceSignatureName ? { name: opts.acceptanceSignatureName, signedAt: opts.acceptanceSignedAt } : null,
   };
 }

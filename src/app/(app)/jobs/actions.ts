@@ -8,16 +8,16 @@ import { calcLoaded, loadEstimate } from "@/lib/estimates";
 import { getTaxRates, logActivity, nextNumber } from "@/lib/settings";
 import { todayIso } from "@/lib/format";
 import {
+  copySchedule,
   isValidIsoDate,
   normaliseDuration,
   parseDependsOn,
-  rescheduleDependants,
+  planTaskSave,
+  scheduleStart,
   sequentialChain,
   shiftSchedule as shiftTasks,
-  snapToWorkingDay,
   suggestedDuration,
   taskFinish,
-  wouldCreateCycle,
 } from "@/lib/scheduling";
 import { COST_TYPES, JOB_STATUSES, SELECTION_STATUSES, type ActionResult } from "../schedule/_lib/constants";
 
@@ -118,7 +118,35 @@ export async function createJobFromEstimate(_: ActionResult, fd: FormData): Prom
   }
   if (lines.length) await db.insert(schema.jobBudgetLines).values(lines);
 
-  if (starter) {
+  // The estimate's own schedule (planned at quote stage) wins; the category starter is the fallback.
+  const planned = starter
+    ? await db.select().from(schema.estimateTasks).where(eq(schema.estimateTasks.estimateId, e.id)).orderBy(asc(schema.estimateTasks.sortOrder), asc(schema.estimateTasks.startDate))
+    : [];
+  if (planned.length) {
+    const copied = copySchedule(
+      planned.map((t) => ({ ...t, dependsOn: parseDependsOn(t.dependsOn) })),
+      startDate,
+      () => crypto.randomUUID(),
+    );
+    await db.insert(schema.jobTasks).values(
+      copied.map((t, i) => ({
+        id: t.id,
+        jobId: job.id,
+        name: t.name,
+        startDate: t.startDate,
+        durationDays: normaliseDuration(t.durationDays),
+        dependsOn: JSON.stringify(t.dependsOn),
+        assigneeContactId: t.assigneeContactId,
+        colour: t.colour,
+        notes: t.notes,
+        progress: 0,
+        sortOrder: i + 1,
+      })),
+    );
+    const s0 = scheduleStart(copied)!;
+    const f0 = copied.map((t) => taskFinish(t)).sort().at(-1)!;
+    await db.update(schema.jobs).set({ startDate: s0, endDate: f0 }).where(eq(schema.jobs.id, job.id));
+  } else if (starter) {
     const cats = r.order.map((id) => byId.get(id)!).filter((i) => i && i.kind === "category" && !i.parentId);
     const chain = sequentialChain(
       cats.map((c) => ({ name: c.description || "Stage", durationDays: suggestedDuration(catBudget.get(c.description || "Uncategorised") ?? 0) })),
@@ -241,17 +269,10 @@ export async function saveTask(_: ActionResult, fd: FormData): Promise<ActionRes
   if (Number.isNaN(progress) || progress < 0 || progress > 100) return fail("Progress must be between 0 and 100%.");
 
   const rows = await db.select().from(schema.jobTasks).where(eq(schema.jobTasks.jobId, jobId)).orderBy(asc(schema.jobTasks.sortOrder));
-  if (id && !rows.some((r) => r.id === id)) return fail("Task not found.");
-  const ids = new Set(rows.map((r) => r.id));
-  const preds = [...new Set(fd.getAll("dependsOn").map(String))].filter((p) => ids.has(p) && p !== id);
-  const taskId = id || crypto.randomUUID();
   const before = rows.map((r) => ({ id: r.id, startDate: r.startDate, durationDays: r.durationDays, dependsOn: parseDependsOn(r.dependsOn) }));
-  if (id && wouldCreateCycle(before, taskId, preds)) return fail("Those predecessors would create a loop (a task can't depend on its own successors).");
-
-  const edited = { id: taskId, startDate: snapToWorkingDay(start), durationDays: normaliseDuration(dur), dependsOn: preds };
-  const after = id ? before.map((t) => (t.id === id ? edited : t)) : [...before, edited];
-  const { tasks, moved } = rescheduleDependants(before, after, [taskId]);
-  const final = tasks.find((t) => t.id === taskId)!;
+  const plan = planTaskSave(before, { id, newId: crypto.randomUUID(), startDate: start, durationDays: dur, dependsOn: fd.getAll("dependsOn").map(String) });
+  if (!plan.ok) return fail(plan.error);
+  const { id: taskId, preds, final, tasks, moved } = plan;
 
   const values = {
     name,

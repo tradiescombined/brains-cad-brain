@@ -12,6 +12,8 @@ import {
   type MeasurementRow,
   type QuoteOptionsRow,
   type EstimateRow,
+  type TaskRow,
+  remapTasks,
 } from "./estimate-copy";
 
 function seqGen(prefix = "n") {
@@ -37,6 +39,10 @@ function plan(id: string): PlanRow {
 }
 function meas(id: string, planId: string): MeasurementRow {
   return { id, estimateId: "src", planId, code: id.toUpperCase(), description: id, shape: "line", points: "[]", colour: "#000", unit: "m", pitchDegrees: 0, depthMm: 0, heightMm: 0, isNegative: false, value: 5, ...ts };
+}
+
+function task(id: string, deps: string[] = [], extra: Partial<TaskRow> = {}): TaskRow {
+  return { id, estimateId: "src", name: `T ${id}`, startDate: "2026-11-16", durationDays: 2, dependsOn: JSON.stringify(deps), assigneeContactId: null, colour: null, notes: null, sortOrder: 0, ...ts, ...extra };
 }
 
 describe("remapTree", () => {
@@ -77,6 +83,7 @@ describe("copyEstimateGraph", () => {
     plans: [plan("p1")],
     measurements: [meas("m1", "p1"), meas("m9", "nope")],
     quoteOptions: qo,
+    tasks: [task("t1"), task("t2", ["t1"]), task("t3", ["t1", "t2", "gone"], { assigneeContactId: "c9", notes: "N" })],
   };
 
   it("re-points every row at the target estimate with fresh ids", () => {
@@ -121,9 +128,26 @@ describe("copyEstimateGraph", () => {
     expect(out.plans[0]).not.toHaveProperty("updatedAt");
   });
 
+  it("copies schedule tasks with fresh ids and remapped dependencies", () => {
+    const out = copyEstimateGraph(graph, "dst", seqGen());
+    expect(out.tasks).toHaveLength(3);
+    const byName = Object.fromEntries(out.tasks.map((t) => [t.name, t]));
+    for (const t of out.tasks) {
+      expect(t.estimateId).toBe("dst");
+      expect(["t1", "t2", "t3"]).not.toContain(t.id);
+      expect(t).not.toHaveProperty("createdAt");
+    }
+    expect(JSON.parse(byName["T t2"].dependsOn)).toEqual([byName["T t1"].id]);
+    // link to a task outside the estimate is dropped
+    expect(JSON.parse(byName["T t3"].dependsOn)).toEqual([byName["T t1"].id, byName["T t2"].id]);
+    expect(byName["T t3"]).toMatchObject({ assigneeContactId: "c9", notes: "N", startDate: "2026-11-16", durationDays: 2 });
+    // source untouched
+    expect(graph.tasks[1].dependsOn).toBe('["t1"]');
+  });
+
   it("works for an empty estimate", () => {
-    const out = copyEstimateGraph({ items: [], specifications: [], plans: [], measurements: [], quoteOptions: null }, "dst");
-    expect(out).toEqual({ items: [], specifications: [], plans: [], measurements: [], quoteOptions: null });
+    const out = copyEstimateGraph({ items: [], specifications: [], plans: [], measurements: [], quoteOptions: null, tasks: [] }, "dst");
+    expect(out).toEqual({ items: [], specifications: [], plans: [], measurements: [], quoteOptions: null, tasks: [] });
   });
 });
 
@@ -158,6 +182,46 @@ describe("snapshots", () => {
     expect(plan.specifications[0]).not.toHaveProperty("createdAt");
     expect(plan.estimatePatch).toEqual({ markupLines: est.markupLines, taxRateId: "gst", pcpsRedistribution: "none", rounding: "ten", specificationIntro: "Intro" });
     expect(plan.estimatePatch).not.toHaveProperty("name");
+  });
+});
+
+describe("snapshots with a schedule", () => {
+  const est = { id: "e1", name: "House", markupLines: "[]", taxRateId: null, pcpsRedistribution: "none", rounding: "none", specificationIntro: null, quoteTotal: 1 } as unknown as EstimateRow;
+  const tasks = [task("t1"), task("t2", ["t1"])].map((t) => ({ ...t, estimateId: "e1" }));
+
+  it("captures and restores tasks keeping ids and links", () => {
+    const snap = buildSnapshot(est, [], [], new Date(), tasks);
+    const parsed = parseSnapshot(JSON.stringify(snap))!;
+    expect(parsed.tasks).toHaveLength(2);
+    const plan = restorePlan(parsed, "e1");
+    expect(plan.tasks!.map((t) => t.id)).toEqual(["t1", "t2"]);
+    expect(plan.tasks![1].dependsOn).toBe('["t1"]');
+    expect(plan.tasks![0]).not.toHaveProperty("updatedAt");
+  });
+
+  it("leaves the schedule alone for older snapshots without tasks", () => {
+    const snap = buildSnapshot(est, [], []);
+    expect(snap).not.toHaveProperty("tasks");
+    expect(restorePlan(parseSnapshot(JSON.stringify(snap))!, "e1").tasks).toBeNull();
+  });
+
+  it("rejects malformed task lists", () => {
+    expect(parseSnapshot(JSON.stringify({ format: 1, estimate: {}, items: [], specifications: [], tasks: "x" }))).toBeNull();
+    expect(parseSnapshot(JSON.stringify({ format: 1, estimate: {}, items: [], specifications: [], tasks: [{ id: "a" }] }))).toBeNull();
+  });
+});
+
+describe("remapTasks", () => {
+  it("remaps JSON dependsOn and drops self / dangling links", () => {
+    const out = remapTasks([task("a", ["a"]), task("b", ["a", "zzz", "a"])], seqGen("x"));
+    expect(out.map((t) => t.id)).toEqual(["x1", "x2"]);
+    expect(out[0].dependsOn).toBe("[]");
+    expect(out[1].dependsOn).toBe('["x1"]');
+  });
+
+  it("tolerates corrupt dependsOn JSON", () => {
+    const out = remapTasks([task("a", [], { dependsOn: "not json" })], seqGen());
+    expect(out[0].dependsOn).toBe("[]");
   });
 });
 

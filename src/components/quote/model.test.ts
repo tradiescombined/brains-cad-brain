@@ -17,7 +17,7 @@ const base: QuoteOptionValues = {
   title: "Quotation", validDays: 30, coverLetter: "", termsAndConditions: "",
   printBusinessInfo: true, printLogo: true, printCategories: true, printCategoryTotals: false, categoryTotalsIncludeTax: true,
   printItems: false, printQuantities: true, printUnitMeasures: true, printItemTotals: false, printZeroDollarItems: true,
-  printSpecifications: true, printSpecificationNumbers: true, printInitialsArea: false, showMarkup: false,
+  printSpecifications: true, printSpecificationNumbers: true, printInitialsArea: false, printSchedule: false, showMarkup: false,
   pcPrintOption: "show_total", psPrintOption: "show_total",
 };
 

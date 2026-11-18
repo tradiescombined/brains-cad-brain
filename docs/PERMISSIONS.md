@@ -15,7 +15,7 @@ before touching the database. Hiding buttons and sidebar entries is convenience 
 | `settings.manage` | Settings pages, tax rates, numbering, lists, spec library | ✓ | ✓ | | | | |
 | `users.manage` | Settings → Users | ✓ | ✓ | | | | |
 | `estimates.view` | Estimates list and tabs | ✓ | ✓ | ✓ | ✓ | | ✓ |
-| `estimates.edit` | Create/edit estimates, takeoffs, costings, specs, quote options, templates, versions; convert lead → estimate | ✓ | ✓ | ✓ | | | |
+| `estimates.edit` | Create/edit estimates, takeoffs, costings, specs, estimate schedule, quote options, templates, versions; convert lead → estimate | ✓ | ✓ | ✓ | | | |
 | `estimates.delete` | Delete estimates/templates | ✓ | ✓ | ✓ | | | |
 | `quotes.send` | Mark as sent, create/revoke the client link | ✓ | ✓ | ✓ | | | |
 | `catalogues.edit` | Catalogues, items, recipes, CSV import, bulk price changes | ✓ | ✓ | ✓ | | | |
