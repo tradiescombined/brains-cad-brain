@@ -1,7 +1,10 @@
+import { routeDenied } from "@/lib/permissions";
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const denied = await routeDenied(null);
+  if (denied) return denied;
   const { id } = await ctx.params;
   const [d] = await db.select().from(schema.documents).where(eq(schema.documents.id, id));
   if (!d?.dataUrl) return new Response("Not found", { status: 404 });

@@ -1,4 +1,5 @@
 "use server";
+import { denied, requirePermission } from "@/lib/permissions";
 import { db, schema } from "@/db";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -59,6 +60,8 @@ async function resolveClient(data: LeadInput): Promise<{ clientId: string | null
 }
 
 export async function createLead(_prev: LeadFormState, formData: FormData): Promise<LeadFormState> {
+  const denial = await denied("leads.edit");
+  if (denial) return { message: denial };
   const values = rawLeadValues(formData);
   const parsed = parseLeadForm(values);
   if (!parsed.ok) return { errors: parsed.errors, values, message: "Please fix the highlighted fields." };
@@ -76,6 +79,8 @@ export async function createLead(_prev: LeadFormState, formData: FormData): Prom
 }
 
 export async function updateLead(id: string, _prev: LeadFormState, formData: FormData): Promise<LeadFormState> {
+  const denial = await denied("leads.edit");
+  if (denial) return { message: denial };
   const lead = await getLead(id);
   if (!lead) return { message: "This lead no longer exists." };
   const values = rawLeadValues(formData);
@@ -94,6 +99,7 @@ export async function updateLead(id: string, _prev: LeadFormState, formData: For
 }
 
 export async function setLeadStage(formData: FormData) {
+  await requirePermission("leads.edit");
   const id = String(formData.get("id") ?? "");
   const stage = formData.get("stage");
   const lead = await getLead(id);
@@ -107,6 +113,7 @@ export async function setLeadStage(formData: FormData) {
 }
 
 export async function markLeadWon(formData: FormData) {
+  await requirePermission("leads.edit");
   const id = String(formData.get("id") ?? "");
   const lead = await getLead(id);
   if (!lead) return;
@@ -116,6 +123,8 @@ export async function markLeadWon(formData: FormData) {
 }
 
 export async function markLeadLost(_prev: { error?: string; ok?: boolean }, formData: FormData): Promise<{ error?: string; ok?: boolean }> {
+  const denial = await denied("leads.edit");
+  if (denial) return { error: denial };
   const id = String(formData.get("id") ?? "");
   const reason = String(formData.get("lostReason") ?? "").trim();
   if (!reason) return { error: "Tell us why the lead was lost." };
@@ -129,6 +138,7 @@ export async function markLeadLost(_prev: { error?: string; ok?: boolean }, form
 }
 
 export async function reopenLead(formData: FormData) {
+  await requirePermission("leads.edit");
   const id = String(formData.get("id") ?? "");
   const lead = await getLead(id);
   if (!lead) return;
@@ -140,6 +150,7 @@ export async function reopenLead(formData: FormData) {
 }
 
 export async function setLeadArchived(formData: FormData) {
+  await requirePermission("leads.edit");
   const id = String(formData.get("id") ?? "");
   const archived = formData.get("archived") === "1";
   const lead = await getLead(id);
@@ -150,6 +161,7 @@ export async function setLeadArchived(formData: FormData) {
 }
 
 export async function deleteLead(formData: FormData) {
+  await requirePermission("records.delete");
   const id = String(formData.get("id") ?? "");
   const lead = await getLead(id);
   if (lead) {
@@ -164,6 +176,7 @@ export async function deleteLead(formData: FormData) {
 }
 
 export async function createClientFromLead(formData: FormData) {
+  await requirePermission("clients.edit");
   const id = String(formData.get("id") ?? "");
   const lead = await getLead(id);
   if (!lead || lead.clientId) return;
@@ -175,6 +188,7 @@ export async function createClientFromLead(formData: FormData) {
 }
 
 export async function convertLeadToEstimate(formData: FormData) {
+  await requirePermission("estimates.edit");
   const id = String(formData.get("id") ?? "");
   const lead = await getLead(id);
   if (!lead) redirect("/leads");

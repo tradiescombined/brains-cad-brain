@@ -48,6 +48,7 @@ with `[M1]` takeoff references and `[W10]` wastage, named markup lines, GST, PC/
 redistribution, rounding). Call `recalcEstimate(id)` after any change.
 
 Conventions for contributors (human or AI): `AGENTS.md`. Product spec: `docs/SPEC.md`.
+Roles & permissions (every Server Action must check one): `docs/PERMISSIONS.md`, `src/lib/permissions.ts`.
 
 ## Data
 

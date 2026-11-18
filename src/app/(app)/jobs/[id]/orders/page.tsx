@@ -1,3 +1,4 @@
+import { currentPermissions } from "@/lib/permissions";
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { EmptyState, LinkButton, Stat } from "@/components/ui";
@@ -9,6 +10,7 @@ import { NewOrderButton } from "../../../orders/_shared/NewOrderButton";
 export const metadata = { title: "Job orders" };
 
 export default async function JobOrdersPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string }> }) {
+  const perm = await currentPermissions();
   const { id } = await params;
   const { created } = await searchParams;
   const [rows, suppliers, budget] = await Promise.all([
@@ -23,7 +25,7 @@ export default async function JobOrdersPage({ params, searchParams }: { params: 
   const actions = (
     <div className="flex flex-wrap gap-2">
       <LinkButton variant="secondary" href={`/jobs/${id}/orders/from-budget`}>Create orders from budget</LinkButton>
-      <NewOrderButton jobs={[]} suppliers={supOpts} jobId={id} />
+      {perm["orders.edit"] && <NewOrderButton jobs={[]} suppliers={supOpts} jobId={id} />}
     </div>
   );
   return (

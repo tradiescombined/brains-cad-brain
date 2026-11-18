@@ -1,4 +1,5 @@
 "use server";
+import { denied, requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { and, eq, ne } from "drizzle-orm";
 import { db, schema } from "@/db";
@@ -14,6 +15,8 @@ function revalidate(id: string) {
 
 /** Saves the Details tab. Always recalculates, since tax / redistribution / rounding affect totals. */
 export async function saveDetails(_prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { error: denial, at: Date.now() };
   const id = String(fd.get("id") ?? "");
   const [est] = await db.select().from(schema.estimates).where(eq(schema.estimates.id, id));
   if (!est) return { error: "This estimate no longer exists." };
@@ -121,6 +124,8 @@ export async function saveDetails(_prev: FormState, fd: FormData): Promise<FormS
 /* ------------------------------------------------------------------ versions */
 
 export async function captureVersionAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { error: denial, at: Date.now() };
   const id = String(fd.get("estimateId") ?? "");
   const label = str(fd, "label", 120);
   if (!label) return { error: "Give the version a label, e.g. “Before client changes”.", at: Date.now() };
@@ -132,6 +137,8 @@ export async function captureVersionAction(_prev: FormState, fd: FormData): Prom
 }
 
 export async function restoreVersionAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { error: denial, at: Date.now() };
   const id = String(fd.get("estimateId") ?? "");
   const versionId = String(fd.get("versionId") ?? "");
   const [v] = await db.select({ estimateId: schema.estimateVersions.estimateId }).from(schema.estimateVersions).where(eq(schema.estimateVersions.id, versionId));
@@ -144,6 +151,7 @@ export async function restoreVersionAction(_prev: FormState, fd: FormData): Prom
 }
 
 export async function deleteVersionAction(fd: FormData) {
+  await requirePermission("estimates.edit");
   const id = String(fd.get("estimateId") ?? "");
   const versionId = String(fd.get("versionId") ?? "");
   await db.delete(schema.estimateVersions).where(and(eq(schema.estimateVersions.id, versionId), eq(schema.estimateVersions.estimateId, id)));

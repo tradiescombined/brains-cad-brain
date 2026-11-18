@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui";
 import { importClients } from "../actions";
 import { CsvImport } from "../CsvImport";
@@ -9,7 +10,8 @@ const SAMPLE = `Name,Business name,Email,Mobile,Suburb,State,Postcode,Source
 Priya Shah,,priya@example.com,0412 345 678,Paddington,QLD,4064,Referral
 Tom Walsh,Walsh Property Group,tom@example.com,0498 765 432,Newstead,QLD,4006,Website`;
 
-export default function ImportClientsPage() {
+export default async function ImportClientsPage() {
+  await requirePermission("clients.edit");
   return (
     <div>
       <PageHeader

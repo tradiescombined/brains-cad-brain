@@ -2,10 +2,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { NAV } from "./nav";
+import type { NavSection } from "./nav";
 import { cx } from "@/lib/format";
 
-export function Sidebar({ businessName }: { businessName: string }) {
+export function Sidebar({ businessName, nav, userLabel }: { businessName: string; nav: NavSection[]; userLabel?: string }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   return (
@@ -22,7 +22,7 @@ export function Sidebar({ businessName }: { businessName: string }) {
       >
         <div className="hidden px-5 py-4 lg:block"><Brand /></div>
         <nav className="flex-1 overflow-y-auto px-3 pb-4">
-          {NAV.map((g) => (
+          {nav.map((g) => (
             <div key={g.section} className="mt-4 first:mt-1">
               <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-400">{g.section}</div>
               {g.items.map((it) => {
@@ -45,7 +45,10 @@ export function Sidebar({ businessName }: { businessName: string }) {
             </div>
           ))}
         </nav>
-        <div className="border-t border-ink-100 px-5 py-3 text-xs text-ink-500">{businessName}</div>
+        <div className="border-t border-ink-100 px-5 py-3 text-xs text-ink-500">
+          {businessName}
+          {userLabel && <div data-testid="current-user" className="mt-0.5 truncate text-ink-400">{userLabel}</div>}
+        </div>
       </aside>
     </>
   );

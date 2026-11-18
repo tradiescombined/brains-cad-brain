@@ -1,3 +1,4 @@
+import { currentPermissions } from "@/lib/permissions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db, schema } from "@/db";
@@ -13,6 +14,7 @@ import { deleteVariation } from "../actions";
 export const metadata = { title: "Variation" };
 
 export default async function VariationPage({ params }: { params: Promise<{ id: string; vid: string }> }) {
+  const perm = await currentPermissions();
   const { id, vid } = await params;
   const [v] = await db.select().from(schema.variations).where(and(eq(schema.variations.id, vid), eq(schema.variations.jobId, id)));
   if (!v) notFound();
@@ -55,10 +57,10 @@ export default async function VariationPage({ params }: { params: Promise<{ id: 
             <DescList items={[["Cost", money(t.cost)], ["Markup", money(t.markup)], ["Tax", money(v.taxTotal)], ["Total", <strong key="t" className="tabular-nums">{money(v.total)}</strong>]]} />
           </Card>
           <Card title="Danger zone">
-            <form action={deleteVariation}>
+            {perm["variations.edit"] && (!locked || perm["variations.approve"]) && <form action={deleteVariation}>
               <input type="hidden" name="id" value={v.id} />
               <ConfirmSubmit confirmText="Confirm delete" className="w-full">Delete variation</ConfirmSubmit>
-            </form>
+            </form>}
             {locked && <p className="mt-2 text-xs text-ink-500">Deleting an approved variation removes it from the contract value. Invoiced variations can&apos;t be deleted.</p>}
           </Card>
         </aside>

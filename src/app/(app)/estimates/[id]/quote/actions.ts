@@ -1,4 +1,5 @@
 "use server";
+import { denied, requirePermission } from "@/lib/permissions";
 import { syncLeadWithEstimate } from "@/lib/estimates";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
@@ -16,6 +17,8 @@ function paths(id: string) {
 }
 
 export async function saveQuoteOptions(estimateId: string, _prev: QuoteActionState, fd: FormData): Promise<QuoteActionState> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, message: denial, at: Date.now() };
   const title = String(fd.get("title") ?? "").trim();
   const validDays = Number(fd.get("validDays"));
   if (!title) return { ok: false, message: "Enter a document title.", at: Date.now() };
@@ -39,6 +42,7 @@ export async function saveQuoteOptions(estimateId: string, _prev: QuoteActionSta
 }
 
 export async function markAsSent(fd: FormData) {
+  await requirePermission("quotes.send");
   const id = String(fd.get("estimateId") ?? "");
   const [est] = await db.select().from(schema.estimates).where(eq(schema.estimates.id, id));
   if (!est) return;
@@ -56,6 +60,7 @@ export async function markAsSent(fd: FormData) {
 }
 
 export async function createShareLink(fd: FormData) {
+  await requirePermission("quotes.send");
   const id = String(fd.get("estimateId") ?? "");
   await getOrCreateQuoteOptions(id);
   const token = randomBytes(18).toString("base64url");
@@ -65,6 +70,7 @@ export async function createShareLink(fd: FormData) {
 }
 
 export async function revokeShareLink(fd: FormData) {
+  await requirePermission("quotes.send");
   const id = String(fd.get("estimateId") ?? "");
   await db.update(schema.quoteOptions).set({ shareToken: null }).where(and(eq(schema.quoteOptions.estimateId, id)));
   await logActivity("estimate", id, "quote_link_revoked", "Client quote link revoked");

@@ -1,3 +1,4 @@
+import { currentPermissions } from "@/lib/permissions";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db, schema } from "@/db";
@@ -23,6 +24,7 @@ const STATUS_VERB: Record<string, string> = {
 };
 
 export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {
+  const perm = await currentPermissions();
   const { id } = await params;
   const [po] = await db.select().from(schema.purchaseOrders).where(eq(schema.purchaseOrders.id, id));
   if (!po) notFound();
@@ -117,7 +119,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
               ))}
             </Card>
           )}
-          {!locked && (
+          {!locked && perm["orders.edit"] && (
             <Card title="Danger zone">
               <form action={deleteOrder}>
                 <input type="hidden" name="id" value={po.id} />

@@ -1,3 +1,4 @@
+import { currentPermissions } from "@/lib/permissions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db, schema } from "@/db";
@@ -33,6 +34,7 @@ function StatusBtn({ id, action, children, tone = "secondary" }: { id: string; a
 }
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+  const perm = await currentPermissions();
   const { id } = await params;
   const [inv] = await db.select().from(schema.invoices).where(eq(schema.invoices.id, id));
   if (!inv) notFound();
@@ -89,10 +91,10 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                       <div className="font-medium tabular-nums">{money(p.amount)}</div>
                       <div className="text-xs text-ink-500">{date(p.date)} · {p.method}{p.reference ? ` · ${p.reference}` : ""}</div>
                     </div>
-                    <form action={deletePayment}>
+                    {perm["invoices.payments"] && <form action={deletePayment}>
                       <input type="hidden" name="id" value={p.id} />
                       <ConfirmSubmit confirmText="Remove?" className="!px-2 !py-1 !text-xs">Remove</ConfirmSubmit>
-                    </form>
+                    </form>}
                   </li>
                 ))}
               </ul>
@@ -101,10 +103,10 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             )}
           </Card>
           <Card title="Danger zone">
-            <form action={deleteInvoice}>
+            {perm["invoices.edit"] && <form action={deleteInvoice}>
               <input type="hidden" name="id" value={inv.id} />
               <ConfirmSubmit confirmText="Confirm delete" className="w-full">Delete invoice</ConfirmSubmit>
-            </form>
+            </form>}
             <p className="mt-2 text-xs text-ink-500">Prefer voiding sent invoices so the number stays in your records. {job && <Link href={`/jobs/${job.id}/invoices`} className="text-brand-700">Job invoices</Link>}</p>
           </Card>
         </aside>

@@ -1,3 +1,4 @@
+import { canManageUser, requirePermission } from "@/lib/permissions";
 import { asc } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { Badge, Checkbox, Field, Input, Select } from "@/components/ui";
@@ -20,7 +21,7 @@ const ROLE_HINT: Record<string, string> = {
   "Read Only": "Can view but not change anything",
 };
 
-function UserFields({ u }: { u?: User }) {
+function UserFields({ u, roles = ROLES }: { u?: User; roles?: readonly string[] }) {
   return (
     <>
       {u && <input type="hidden" name="id" value={u.id} />}
@@ -43,7 +44,7 @@ function UserFields({ u }: { u?: User }) {
         </Field>
       </div>
       <Field label="Role">
-        <Select name="role" defaultValue={u?.role ?? "Estimator"} options={ROLES.map((r) => ({ value: r, label: `${r} — ${ROLE_HINT[r]}` }))} />
+        <Select name="role" defaultValue={u?.role ?? "Estimator"} options={roles.map((r) => ({ value: r, label: `${r} — ${ROLE_HINT[r]}` }))} />
         <FieldError name="role" />
       </Field>
       <Checkbox name="active" defaultChecked={u ? u.active : true} label="Active (can sign in and be assigned work)" />
@@ -52,6 +53,9 @@ function UserFields({ u }: { u?: User }) {
 }
 
 export default async function UsersSettingsPage() {
+  const me = await requirePermission("users.manage");
+  // Only an Owner can grant the Owner role or change/remove an Owner (see canManageUser).
+  const roles = ROLES.filter((r) => !canManageUser(me.role, null, r));
   const users = await db.select().from(schema.users).orderBy(asc(schema.users.firstName), asc(schema.users.surname));
   const activeCount = users.filter((u) => u.active).length;
   return (
@@ -64,7 +68,7 @@ export default async function UsersSettingsPage() {
           </p>
         </div>
         <DialogForm action={saveUser} title="Add user" triggerLabel="+ Add user" submitLabel="Add user">
-          <UserFields />
+          <UserFields roles={roles} />
         </DialogForm>
       </header>
       {users.length === 0 ? (
@@ -106,10 +110,14 @@ export default async function UsersSettingsPage() {
                     <td className="px-3 py-2">{u.active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}</td>
                     <td className="px-4 py-2">
                       <div className="flex items-center justify-end gap-1.5">
-                        <DialogForm action={saveUser} title={`Edit ${name}`} triggerLabel="Edit" trigger="small" submitLabel="Save user">
-                          <UserFields u={u} />
-                        </DialogForm>
-                        <DeleteForm action={deleteUser} id={u.id} confirmText="Delete user?" />
+                        {!canManageUser(me.role, u) && (
+                          <>
+                            <DialogForm action={saveUser} title={`Edit ${name}`} triggerLabel="Edit" trigger="small" submitLabel="Save user">
+                              <UserFields u={u} roles={roles} />
+                            </DialogForm>
+                            <DeleteForm action={deleteUser} id={u.id} confirmText="Delete user?" />
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

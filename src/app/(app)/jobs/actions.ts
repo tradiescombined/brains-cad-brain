@@ -1,4 +1,5 @@
 "use server";
+import { denied, requirePermission } from "@/lib/permissions";
 import { db, schema } from "@/db";
 import { and, asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -53,6 +54,8 @@ function optDate(fd: FormData, k: string, label: string): string | null | Error 
 
 // ---------- jobs ----------
 export async function createJobFromEstimate(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  const denial = await denied("jobs.edit");
+  if (denial) return fail(denial);
   const estimateId = s(fd, "estimateId");
   if (!estimateId) return fail("Choose an estimate to create the job from.");
   const l = await loadEstimate(estimateId);
@@ -139,6 +142,8 @@ export async function createJobFromEstimate(_: ActionResult, fd: FormData): Prom
 }
 
 export async function createBlankJob(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  const denial = await denied("jobs.edit");
+  if (denial) return fail(denial);
   const name = s(fd, "name");
   if (!name) return fail("Job name is required.");
   const startDate = optDate(fd, "startDate", "Start date");
@@ -168,6 +173,8 @@ export async function createBlankJob(_: ActionResult, fd: FormData): Promise<Act
 }
 
 export async function updateJob(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  const denial = await denied("jobs.edit");
+  if (denial) return fail(denial);
   const id = s(fd, "id");
   const job = await requireJob(id);
   if (!job) return fail("Job not found.");
@@ -205,6 +212,7 @@ export async function updateJob(_: ActionResult, fd: FormData): Promise<ActionRe
 }
 
 export async function archiveJob(fd: FormData) {
+  await requirePermission("jobs.edit");
   const id = s(fd, "id");
   const job = await requireJob(id);
   if (!job) return;
@@ -218,6 +226,8 @@ export async function archiveJob(fd: FormData) {
 
 // ---------- schedule ----------
 export async function saveTask(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  const denial = await denied("schedule.edit");
+  if (denial) return fail(denial);
   const jobId = s(fd, "jobId");
   if (!(await requireJob(jobId))) return fail("Job not found.");
   const id = s(fd, "id");
@@ -264,6 +274,7 @@ export async function saveTask(_: ActionResult, fd: FormData): Promise<ActionRes
 }
 
 export async function deleteTask(fd: FormData) {
+  await requirePermission("schedule.edit");
   const id = s(fd, "id");
   const [t] = await db.select().from(schema.jobTasks).where(eq(schema.jobTasks.id, id));
   if (!t) return;
@@ -277,6 +288,7 @@ export async function deleteTask(fd: FormData) {
 }
 
 export async function moveTask(fd: FormData) {
+  await requirePermission("schedule.edit");
   const id = s(fd, "id");
   const dir = s(fd, "dir") === "up" ? -1 : 1;
   const [t] = await db.select().from(schema.jobTasks).where(eq(schema.jobTasks.id, id));
@@ -291,6 +303,8 @@ export async function moveTask(fd: FormData) {
 }
 
 export async function shiftSchedule(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  const denial = await denied("schedule.edit");
+  if (denial) return fail(denial);
   const jobId = s(fd, "jobId");
   const job = await requireJob(jobId);
   if (!job) return fail("Job not found.");
@@ -307,6 +321,8 @@ export async function shiftSchedule(_: ActionResult, fd: FormData): Promise<Acti
 
 // ---------- budget lines ----------
 export async function saveBudgetLine(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  const denial = await denied("jobs.edit");
+  if (denial) return fail(denial);
   const jobId = s(fd, "jobId");
   if (!(await requireJob(jobId))) return fail("Job not found.");
   const id = s(fd, "id");
@@ -331,6 +347,7 @@ export async function saveBudgetLine(_: ActionResult, fd: FormData): Promise<Act
 }
 
 export async function deleteBudgetLine(fd: FormData) {
+  await requirePermission("jobs.edit");
   const id = s(fd, "id");
   const [l] = await db.select().from(schema.jobBudgetLines).where(eq(schema.jobBudgetLines.id, id));
   if (!l) return;
@@ -341,6 +358,8 @@ export async function deleteBudgetLine(fd: FormData) {
 
 // ---------- actual costs ----------
 export async function saveActualCost(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  const denial = await denied("jobs.edit");
+  if (denial) return fail(denial);
   const jobId = s(fd, "jobId");
   if (!(await requireJob(jobId))) return fail("Job not found.");
   const id = s(fd, "id");
@@ -373,6 +392,7 @@ export async function saveActualCost(_: ActionResult, fd: FormData): Promise<Act
 }
 
 export async function deleteActualCost(fd: FormData) {
+  await requirePermission("jobs.edit");
   const id = s(fd, "id");
   const [c] = await db.select().from(schema.actualCosts).where(eq(schema.actualCosts.id, id));
   if (!c) return;
@@ -382,6 +402,8 @@ export async function deleteActualCost(fd: FormData) {
 
 // ---------- timesheets ----------
 export async function saveTimesheet(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  const denial = await denied("timesheets.edit");
+  if (denial) return fail(denial);
   const jobId = s(fd, "jobId");
   if (!(await requireJob(jobId))) return fail("Job not found.");
   const id = s(fd, "id");
@@ -401,6 +423,7 @@ export async function saveTimesheet(_: ActionResult, fd: FormData): Promise<Acti
 }
 
 export async function deleteTimesheet(fd: FormData) {
+  await requirePermission("timesheets.edit");
   const id = s(fd, "id");
   const [t] = await db.select().from(schema.timesheets).where(eq(schema.timesheets.id, id));
   if (!t) return;
@@ -410,6 +433,8 @@ export async function deleteTimesheet(fd: FormData) {
 
 // ---------- selections ----------
 export async function saveSelection(_: ActionResult, fd: FormData): Promise<ActionResult> {
+  const denial = await denied("selections.edit");
+  if (denial) return fail(denial);
   const jobId = s(fd, "jobId");
   if (!(await requireJob(jobId))) return fail("Job not found.");
   const id = s(fd, "id");
@@ -453,6 +478,7 @@ export async function saveSelection(_: ActionResult, fd: FormData): Promise<Acti
 }
 
 export async function deleteSelection(fd: FormData) {
+  await requirePermission("selections.edit");
   const id = s(fd, "id");
   const [x] = await db.select().from(schema.selections).where(eq(schema.selections.id, id));
   if (!x) return;

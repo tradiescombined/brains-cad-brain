@@ -1,4 +1,5 @@
 "use server";
+import { denied } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
@@ -10,6 +11,8 @@ const isId = (s: string) => /^[A-Za-z0-9-]{4,64}$/.test(s);
 
 /** Replaces the estimate's specification tree and intro with the posted editor state. */
 export async function saveSpecifications(estimateId: string, _prev: EditorActionState, fd: FormData): Promise<EditorActionState> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, message: denial, at: Date.now() };
   const [est] = await db.select({ id: schema.estimates.id }).from(schema.estimates).where(eq(schema.estimates.id, estimateId));
   if (!est) return { ok: false, message: "Estimate not found.", at: Date.now() };
   let tree: SpecNode[] | null;

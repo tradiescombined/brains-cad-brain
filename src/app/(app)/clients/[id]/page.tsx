@@ -1,3 +1,4 @@
+import { currentPermissions } from "@/lib/permissions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db, schema } from "@/db";
@@ -23,6 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function ClientPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; created?: string }> }) {
+  const perm = await currentPermissions();
   const { id } = await params;
   const sp = await searchParams;
   const tab: Tab = (TABS as readonly string[]).includes(sp.tab ?? "") ? (sp.tab as Tab) : "details";
@@ -70,8 +72,8 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
               {c.archived ? "Restore client" : "Archive"}
             </button>
           </form>
-          <LinkButton href={`/estimates/new?clientId=${id}`}>New estimate</LinkButton>
-        </div>
+          {perm["estimates.edit"] && <LinkButton href={`/estimates/new?clientId=${id}`}>New estimate</LinkButton>
+}        </div>
       </div>
 
       {sp.created && <div role="status" className="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Client created.</div>}
@@ -97,7 +99,7 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
 
       {tab === "estimates" &&
         (estimates.length === 0 ? (
-          <EmptyState title="No estimates for this client" body="Estimates linked to this client will appear here." action={<LinkButton href={`/estimates/new?clientId=${id}`}>New estimate</LinkButton>} />
+          <EmptyState title="No estimates for this client" body="Estimates linked to this client will appear here." action={perm["estimates.edit"] && <LinkButton href={`/estimates/new?clientId=${id}`}>New estimate</LinkButton>} />
         ) : (
           <Table>
             <thead>

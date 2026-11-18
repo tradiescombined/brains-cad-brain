@@ -1,4 +1,5 @@
 "use server";
+import { denied } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { and, asc, eq, inArray, like, or } from "drizzle-orm";
 import { z } from "zod";
@@ -71,6 +72,8 @@ const firstIssue = (e: z.ZodError) => {
  * Validates ownership and the category > item > sub-item structure before writing.
  */
 export async function applyCostingsPatch(estimateId: string, patch: CostingsPatch): Promise<ActionResult> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, error: denial };
   const parsed = patchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
   if (!(await estimateExists(estimateId))) return { ok: false, error: "Estimate not found" };
@@ -138,6 +141,8 @@ const markupSchema = z
   .max(12, "Up to 12 markup lines");
 
 export async function saveMarkupLines(estimateId: string, lines: MarkupLine[]): Promise<ActionResult> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, error: denial };
   const parsed = markupSchema.safeParse(lines);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid markup" };
   if (!(await estimateExists(estimateId))) return { ok: false, error: "Estimate not found" };
@@ -148,6 +153,8 @@ export async function saveMarkupLines(estimateId: string, lines: MarkupLine[]): 
 const roundingSchema = z.enum(["none", "dollar", "ten", "hundred", "thousand"]);
 
 export async function setRounding(estimateId: string, rounding: string): Promise<ActionResult> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, error: denial };
   const parsed = roundingSchema.safeParse(rounding);
   if (!parsed.success) return { ok: false, error: "Unknown rounding option" };
   if (!(await estimateExists(estimateId))) return { ok: false, error: "Estimate not found" };
@@ -176,6 +183,8 @@ const searchSchema = z.object({
 
 /** Search catalogue items by description or code, optionally within a catalogue / category. */
 export async function searchCatalogue(input: { q?: string; catalogueId?: string; categoryId?: string }): Promise<CatalogueHit[]> {
+  const denial = await denied("estimates.edit");
+  if (denial) return [];
   const p = searchSchema.parse(input);
   const conds = [eq(schema.catalogueItems.archived, false)];
   if (p.catalogueId) conds.push(eq(schema.catalogueItems.catalogueId, p.catalogueId));
@@ -213,6 +222,8 @@ const addSchema = z.object({
 
 /** Insert catalogue items into a category; recipes expand into a parent with sub-items. */
 export async function addCatalogueItems(estimateId: string, input: { categoryId: string; picks: { id: string; quantity: number }[] }): Promise<ActionResult> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, error: denial };
   const parsed = addSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid selection" };
   if (!(await estimateExists(estimateId))) return { ok: false, error: "Estimate not found" };

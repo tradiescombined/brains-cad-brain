@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui";
 import { CsvImport } from "../../clients/CsvImport";
 import { importContacts } from "../actions";
@@ -9,7 +10,8 @@ const SAMPLE = `Name,Type,Trade,Groups,Email,Mobile,Insurance expiry,Payment ter
 Coastal Roofing,Subcontractor,Roofer,Roofing,jobs@example.com,0400 111 222,30/06/2027,14,5
 Brick & Block Supplies,Supplier,,Concreting;Carpentry,sales@example.com,,,30,4`;
 
-export default function ImportContactsPage() {
+export default async function ImportContactsPage() {
+  await requirePermission("contacts.edit");
   return (
     <div>
       <PageHeader

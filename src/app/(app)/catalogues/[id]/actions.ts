@@ -1,4 +1,5 @@
 "use server";
+import { denied } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { and, asc, eq, inArray, isNull, max } from "drizzle-orm";
 import { z } from "zod";
@@ -22,6 +23,8 @@ function refresh(catalogueId: string) {
 /* ------------------------------------------------------------------ categories */
 
 export async function addCategory(catalogueId: string, name: string, parentId: string | null): Promise<Result<{ id: string }>> {
+  const denial = await denied("catalogues.edit");
+  if (denial) return { ok: false, error: denial };
   const n = name.trim();
   if (!n) return fail("Category name is required");
   if (n.length > 80) return fail("Keep category names under 80 characters");
@@ -38,6 +41,8 @@ export async function addCategory(catalogueId: string, name: string, parentId: s
 }
 
 export async function renameCategory(id: string, name: string): Promise<Result> {
+  const denial = await denied("catalogues.edit");
+  if (denial) return { ok: false, error: denial };
   const n = name.trim();
   if (!n) return fail("Category name is required");
   const [c] = await db.update(K).set({ name: n.slice(0, 80) }).where(eq(K.id, id)).returning();
@@ -48,6 +53,8 @@ export async function renameCategory(id: string, name: string): Promise<Result> 
 
 /** Move a category up/down among its siblings. */
 export async function moveCategory(id: string, dir: -1 | 1): Promise<Result> {
+  const denial = await denied("catalogues.edit");
+  if (denial) return { ok: false, error: denial };
   const [c] = await db.select().from(K).where(eq(K.id, id));
   if (!c) return fail("Category not found");
   const sibs = (await getCategories(c.catalogueId)).filter((s) => (s.parentId ?? null) === (c.parentId ?? null));
@@ -62,6 +69,8 @@ export async function moveCategory(id: string, dir: -1 | 1): Promise<Result> {
 
 /** Nest under another top-level category (parentId) or make top level (null). One level only. */
 export async function setCategoryParent(id: string, parentId: string | null): Promise<Result> {
+  const denial = await denied("catalogues.edit");
+  if (denial) return { ok: false, error: denial };
   const cats = await db.select().from(K).where(eq(K.id, id));
   const c = cats[0];
   if (!c) return fail("Category not found");
@@ -82,6 +91,8 @@ export async function setCategoryParent(id: string, parentId: string | null): Pr
 
 /** Delete a category. Its items become uncategorised; sub-categories move up to the top level. */
 export async function deleteCategory(id: string): Promise<Result> {
+  const denial = await denied("catalogues.edit");
+  if (denial) return { ok: false, error: denial };
   const [c] = await db.select().from(K).where(eq(K.id, id));
   if (!c) return fail("Category not found");
   await db.update(I).set({ categoryId: null }).where(eq(I.categoryId, id));
@@ -122,6 +133,8 @@ async function checkCategory(catalogueId: string, categoryId: string | null | un
 }
 
 export async function createItem(catalogueId: string, input: ItemPatchInput): Promise<Result<{ id: string }>> {
+  const denial = await denied("catalogues.edit");
+  if (denial) return { ok: false, error: denial };
   const p = ItemPatch.safeParse(input);
   if (!p.success) return fail(firstIssue(p.error));
   if (!p.data.description) return fail("Description is required");
@@ -136,6 +149,8 @@ export async function createItem(catalogueId: string, input: ItemPatchInput): Pr
 }
 
 export async function updateItem(id: string, input: ItemPatchInput): Promise<Result> {
+  const denial = await denied("catalogues.edit");
+  if (denial) return { ok: false, error: denial };
   const p = ItemPatch.safeParse(input);
   if (!p.success) return fail(firstIssue(p.error));
   const [item] = await db.select().from(I).where(eq(I.id, id));
@@ -150,6 +165,8 @@ export async function updateItem(id: string, input: ItemPatchInput): Promise<Res
 }
 
 export async function getItemDetail(id: string) {
+  const denial = await denied("costs.view");
+  if (denial) return null;
   const [item] = await db.select().from(I).where(eq(I.id, id));
   if (!item) return null;
   const lines = await db.select().from(L).where(eq(L.recipeItemId, id)).orderBy(asc(L.sortOrder));
@@ -172,6 +189,8 @@ export async function getItemDetail(id: string) {
 export type ItemDetail = NonNullable<Awaited<ReturnType<typeof getItemDetail>>>;
 
 export async function deleteItems(ids: string[]): Promise<Result<{ count: number }>> {
+  const denial = await denied("catalogues.edit");
+  if (denial) return { ok: false, error: denial };
   if (!ids.length) return { ok: true, count: 0 };
   const rows = await db.select({ id: I.id, catalogueId: I.catalogueId }).from(I).where(inArray(I.id, ids));
   await deleteItemsHard(rows.map((r) => r.id));
@@ -180,6 +199,8 @@ export async function deleteItems(ids: string[]): Promise<Result<{ count: number
 }
 
 export async function bulkMoveCategory(catalogueId: string, ids: string[], categoryId: string | null): Promise<Result> {
+  const denial = await denied("catalogues.edit");
+  if (denial) return { ok: false, error: denial };
   if (!(await checkCategory(catalogueId, categoryId))) return fail("Category not found");
   await db.update(I).set({ categoryId }).where(and(inArray(I.id, ids), eq(I.catalogueId, catalogueId)));
   refresh(catalogueId);
@@ -187,6 +208,8 @@ export async function bulkMoveCategory(catalogueId: string, ids: string[], categ
 }
 
 export async function bulkCostType(catalogueId: string, ids: string[], costType: string): Promise<Result> {
+  const denial = await denied("catalogues.edit");
+  if (denial) return { ok: false, error: denial };
   const p = z.enum(COST_TYPES).safeParse(costType);
   if (!p.success) return fail("Pick a cost type");
   await db.update(I).set({ costType: p.data }).where(and(inArray(I.id, ids), eq(I.catalogueId, catalogueId)));
@@ -199,6 +222,8 @@ export async function bulkCostType(catalogueId: string, ids: string[], costType:
  * percentage is applied to their free-text component lines (linked lines follow their component).
  */
 export async function bulkAdjustPrice(catalogueId: string, ids: string[], percent: number): Promise<Result<{ count: number }>> {
+  const denial = await denied("catalogues.edit");
+  if (denial) return { ok: false, error: denial };
   if (!Number.isFinite(percent) || percent <= -100 || percent > 1000) return fail("Enter a percentage between -99.99 and 1000");
   if (percent === 0) return fail("Enter a non-zero percentage");
   const items = await db.select().from(I).where(and(inArray(I.id, ids), eq(I.catalogueId, catalogueId)));
@@ -231,6 +256,8 @@ export type RecipeLineInput = {
 };
 
 export async function saveRecipe(itemId: string, isRecipe: boolean, lines: RecipeLineInput[]): Promise<Result<{ unitCost: number }>> {
+  const denial = await denied("catalogues.edit");
+  if (denial) return { ok: false, error: denial };
   const [item] = await db.select().from(I).where(eq(I.id, itemId));
   if (!item) return fail("Item not found");
   if (!isRecipe) {
@@ -282,6 +309,8 @@ export async function saveRecipe(itemId: string, isRecipe: boolean, lines: Recip
 
 /** Component search for the recipe editor (any catalogue). */
 export async function searchComponents(q: string, excludeId?: string) {
+  const denial = await denied("costs.view");
+  if (denial) return [];
   const rows = await searchCatalogueItems({ q, limit: 20 });
   return rows
     .filter((r) => r.id !== excludeId)
@@ -299,6 +328,8 @@ export type ImportReport = {
 };
 
 export async function importCsv(catalogueId: string, csvText: string, mapping: Mapping, hasHeader: boolean): Promise<Result<{ report: ImportReport }>> {
+  const denial = await denied("catalogues.edit");
+  if (denial) return { ok: false, error: denial };
   if (!(await getCatalogue(catalogueId))) return fail("Catalogue not found");
   if (!csvText.trim()) return fail("The file is empty");
   if (mapping.description == null || mapping.description < 0) return fail("Map a column to Description");

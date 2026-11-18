@@ -1,3 +1,4 @@
+import { currentPermissions } from "@/lib/permissions";
 import Link from "next/link";
 import { PageHeader, EmptyState, Stat } from "@/components/ui";
 import { money } from "@/lib/format";
@@ -11,6 +12,7 @@ export const metadata = { title: "Purchase orders" };
 const selCls = "rounded-md border border-ink-200 bg-white px-2.5 py-1.5 text-sm focus:border-brand-500 focus:outline-none";
 
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ status?: string; supplier?: string; job?: string }> }) {
+  const perm = await currentPermissions();
   const sp = await searchParams;
   const [rows, all, jobs, suppliers] = await Promise.all([
     queryOrders({ status: sp.status || undefined, supplierId: sp.supplier || undefined, jobId: sp.job || undefined }),
@@ -30,7 +32,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
       <PageHeader
         title="Purchase orders"
         subtitle="Material and subcontract orders across all jobs"
-        actions={<NewOrderButton jobs={jobOpts} suppliers={supOpts} />}
+        actions={perm["orders.edit"] && <NewOrderButton jobs={jobOpts} suppliers={supOpts} />}
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -74,7 +76,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         <EmptyState
           title="No purchase orders yet"
           body="Raise orders to your suppliers and trades from a job's budget, or start a blank order."
-          action={<NewOrderButton jobs={jobOpts} suppliers={supOpts} />}
+          action={perm["orders.edit"] && <NewOrderButton jobs={jobOpts} suppliers={supOpts} />}
         />
       )}
     </div>

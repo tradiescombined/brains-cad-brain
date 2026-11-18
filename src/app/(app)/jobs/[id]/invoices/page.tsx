@@ -1,3 +1,4 @@
+import { currentPermissions } from "@/lib/permissions";
 import { EmptyState, LinkButton } from "@/components/ui";
 import { money, todayIso } from "@/lib/format";
 import { getJobContract, queryInvoices } from "../../../orders/_shared/data";
@@ -6,13 +7,14 @@ import { InvoicesTable } from "../../../invoices/_shared/InvoicesTable";
 export const metadata = { title: "Job invoices" };
 
 export default async function JobInvoicesPage({ params }: { params: Promise<{ id: string }> }) {
+  const perm = await currentPermissions();
   const { id } = await params;
   const [c, rows] = await Promise.all([getJobContract(id), queryInvoices({ jobId: id })]);
   if (!c) return null;
   const s = c.summary;
   const pct = Math.min(100, Math.max(0, s.claimedPercent));
   const pendingVars = c.variations.filter((v) => v.status === "Approved" && !c.invoicedVariationIds.has(v.id));
-  const newBtn = <LinkButton href={`/jobs/${id}/invoices/new`}>+ New invoice</LinkButton>;
+  const newBtn = perm["invoices.edit"] && <LinkButton href={`/jobs/${id}/invoices/new`}>+ New invoice</LinkButton>;
   return (
     <div className="space-y-4">
       <section className="rounded-lg border border-ink-200 bg-white p-4 shadow-xs" aria-label="Contract summary">

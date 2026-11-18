@@ -1,3 +1,4 @@
+import { currentPermissions } from "@/lib/permissions";
 import Link from "next/link";
 import { db, schema } from "@/db";
 import { count } from "drizzle-orm";
@@ -16,6 +17,7 @@ const SORTS = ["name", "type", "trade", "email", "mobile", "insurance", "rating"
 type SP = { q?: string; type?: string; group?: string; trade?: string; insurance?: string; sort?: string; dir?: string; archived?: string; deleted?: string };
 
 export default async function ContactsPage({ searchParams }: { searchParams: Promise<SP> }) {
+  const perm = await currentPermissions();
   const sp = await searchParams;
   const { sort, dir } = parseSort(sp.sort, sp.dir, SORTS, "name");
   const showArchived = sp.archived === "1";
@@ -63,12 +65,12 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
         subtitle={`${contacts.length - archivedCount} active${archivedCount ? ` · ${archivedCount} archived` : ""}`}
         actions={
           <>
-            <LinkButton href="/contacts/import" variant="secondary">Import CSV</LinkButton>
-            <a href={`/api/export/contacts${showArchived ? "?archived=1" : ""}`} className="inline-flex items-center rounded-md border border-ink-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-800 shadow-xs hover:bg-ink-50" download>
+            {perm["contacts.edit"] && <LinkButton href="/contacts/import" variant="secondary">Import CSV</LinkButton>
+}            <a href={`/api/export/contacts${showArchived ? "?archived=1" : ""}`} className="inline-flex items-center rounded-md border border-ink-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-800 shadow-xs hover:bg-ink-50" download>
               Export CSV
             </a>
-            <LinkButton href="/contacts/new">New contact</LinkButton>
-          </>
+            {perm["contacts.edit"] && <LinkButton href="/contacts/new">New contact</LinkButton>
+}          </>
         }
       />
 
@@ -100,7 +102,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
         <EmptyState
           title="No suppliers or trades yet"
           body="Keep your suppliers, subbies and consultants here with their insurance, licences and account details."
-          action={<div className="flex gap-2"><LinkButton href="/contacts/import" variant="secondary">Import CSV</LinkButton><LinkButton href="/contacts/new">New contact</LinkButton></div>}
+          action={perm["contacts.edit"] && <div className="flex gap-2"><LinkButton href="/contacts/import" variant="secondary">Import CSV</LinkButton><LinkButton href="/contacts/new">New contact</LinkButton></div>}
         />
       ) : sorted.length === 0 ? (
         <EmptyState title="No matching contacts" body="Try clearing a filter or searching for something else." action={<LinkButton href="/contacts" variant="secondary">Clear filters</LinkButton>} />

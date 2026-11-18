@@ -1,4 +1,5 @@
 "use server";
+import { denied, requirePermission } from "@/lib/permissions";
 import { db, schema } from "@/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -49,6 +50,8 @@ async function insertOrder(jobId: string, supplierId: string | null, lines: PoLi
 
 /** Creates a blank draft PO for a job and opens the editor. */
 export async function createOrder(_: FormState, f: FormData): Promise<FormState> {
+  const denial = await denied("orders.edit");
+  if (denial) return { error: denial };
   const jobId = s(f, "jobId");
   if (!jobId) return { error: "Choose a job for this order." };
   const supplierId = s(f, "supplierId") || null;
@@ -58,6 +61,8 @@ export async function createOrder(_: FormState, f: FormData): Promise<FormState>
 }
 
 export async function saveOrder(_: FormState, f: FormData): Promise<FormState> {
+  const denial = await denied("orders.edit");
+  if (denial) return { error: denial };
   const id = s(f, "id");
   const po = await getOrder(id);
   if (!po) return { error: "Order not found." };
@@ -96,6 +101,7 @@ export async function saveOrder(_: FormState, f: FormData): Promise<FormState> {
 }
 
 export async function setOrderStatus(f: FormData) {
+  await requirePermission("orders.edit");
   const id = s(f, "id");
   const to = s(f, "status") as PoStatus;
   const po = await getOrder(id);
@@ -108,6 +114,8 @@ export async function setOrderStatus(f: FormData) {
 
 /** Records the supplier bill as an actual cost on the job and marks the PO Billed. */
 export async function recordBill(_: FormState, f: FormData): Promise<FormState> {
+  const denial = await denied("orders.edit");
+  if (denial) return { error: denial };
   const id = s(f, "id");
   const po = await getOrder(id);
   if (!po) return { error: "Order not found." };
@@ -143,6 +151,7 @@ export async function recordBill(_: FormState, f: FormData): Promise<FormState> 
 
 /** Reverses a recorded bill: removes the actual cost(s) and returns the PO to Delivered. */
 export async function undoBill(f: FormData) {
+  await requirePermission("orders.edit");
   const id = s(f, "id");
   const po = await getOrder(id);
   if (!po || po.status !== "Billed") return;
@@ -153,6 +162,7 @@ export async function undoBill(f: FormData) {
 }
 
 export async function deleteOrder(f: FormData) {
+  await requirePermission("orders.edit");
   const id = s(f, "id");
   const po = await getOrder(id);
   if (!po) redirect("/orders");
@@ -166,6 +176,8 @@ export async function deleteOrder(f: FormData) {
 
 /** Creates one draft PO per chosen supplier from ticked job budget lines. */
 export async function createOrdersFromBudget(_: FormState, f: FormData): Promise<FormState> {
+  const denial = await denied("orders.edit");
+  if (denial) return { error: denial };
   const jobId = s(f, "jobId");
   const picked = f.getAll("pick").map(String).filter(Boolean);
   if (!picked.length) return { error: "Tick at least one budget line to order." };

@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/permissions";
 import { Card, LinkButton, PageHeader } from "@/components/ui";
 import { addDays, todayIso } from "@/lib/format";
 import { LeadForm } from "../LeadForm";
@@ -8,6 +9,7 @@ import { isLeadStage, toFormValues } from "../lib";
 export const metadata = { title: "New lead" };
 
 export default async function NewLeadPage({ searchParams }: { searchParams: Promise<{ clientId?: string; stage?: string }> }) {
+  await requirePermission("leads.edit");
   const sp = await searchParams;
   const opts = await getLeadFormOptions();
   const client = sp.clientId ? opts.clients.find((c) => c.id === sp.clientId) : undefined;

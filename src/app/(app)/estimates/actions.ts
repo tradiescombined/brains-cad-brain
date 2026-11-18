@@ -1,4 +1,5 @@
 "use server";
+import { denied, requirePermission } from "@/lib/permissions";
 import { syncLeadWithEstimate } from "@/lib/estimates";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -27,6 +28,8 @@ function revalidateEstimate(id: string) {
 
 /** Creates an estimate (blank or from a template) from the /estimates/new form. */
 export async function createEstimate(_prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { error: denial };
   const name = str(fd, "name", 200);
   const templateId = str(fd, "templateId");
   const asTemplate = fd.get("asTemplate") === "1";
@@ -107,6 +110,7 @@ export async function createEstimate(_prev: FormState, fd: FormData): Promise<Fo
 /* ------------------------------------------------------------------ header actions */
 
 export async function setEstimateStatus(fd: FormData) {
+  await requirePermission("estimates.edit");
   const id = String(fd.get("id") ?? "");
   const status = str(fd, "status", 100);
   const [est] = await db.select().from(schema.estimates).where(eq(schema.estimates.id, id));
@@ -120,6 +124,7 @@ export async function setEstimateStatus(fd: FormData) {
 }
 
 export async function duplicateEstimate(fd: FormData) {
+  await requirePermission("estimates.edit");
   const id = String(fd.get("id") ?? "");
   const [src] = await db.select().from(schema.estimates).where(eq(schema.estimates.id, id));
   if (!src) return;
@@ -132,6 +137,7 @@ export async function duplicateEstimate(fd: FormData) {
 }
 
 export async function saveAsTemplate(fd: FormData) {
+  await requirePermission("estimates.edit");
   const id = String(fd.get("id") ?? "");
   const [src] = await db.select().from(schema.estimates).where(eq(schema.estimates.id, id));
   if (!src) return;
@@ -148,6 +154,7 @@ export async function saveAsTemplate(fd: FormData) {
 }
 
 export async function setArchived(fd: FormData) {
+  await requirePermission("estimates.edit");
   const id = String(fd.get("id") ?? "");
   const archived = fd.get("archived") === "1";
   await db.update(schema.estimates).set({ archived }).where(eq(schema.estimates.id, id));
@@ -157,6 +164,7 @@ export async function setArchived(fd: FormData) {
 
 /** Permanently deletes an estimate or template. Only allowed for templates and archived estimates. */
 export async function deleteEstimate(fd: FormData) {
+  await requirePermission("estimates.delete");
   const id = String(fd.get("id") ?? "");
   const [est] = await db.select().from(schema.estimates).where(eq(schema.estimates.id, id));
   if (!est) return;
@@ -173,6 +181,8 @@ export async function deleteEstimate(fd: FormData) {
 /* ------------------------------------------------------------------ templates */
 
 export async function createBlankTemplate(_prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { error: denial };
   const fdd = new FormData();
   const name = str(fd, "name", 200);
   if (!name) return { error: "Name the template.", fieldErrors: { name: "Name the template." } };
@@ -184,6 +194,8 @@ export async function createBlankTemplate(_prev: FormState, fd: FormData): Promi
 }
 
 export async function renameTemplate(_prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { error: denial };
   const id = String(fd.get("id") ?? "");
   const name = str(fd, "name", 200);
   if (!name) return { error: "Name can't be empty." };

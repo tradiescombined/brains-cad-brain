@@ -1,4 +1,5 @@
 "use server";
+import { denied, requirePermission } from "@/lib/permissions";
 import { db, schema } from "@/db";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -16,6 +17,8 @@ function toRow(d: ContactInput) {
 }
 
 export async function createContact(_prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("contacts.edit");
+  if (denial) return { message: denial, savedAt: Date.now() };
   const values = formToObject(fd);
   const v = validateContact(values);
   if (!v.ok) return { errors: v.errors, values, message: "Check the highlighted fields.", savedAt: Date.now() };
@@ -26,6 +29,8 @@ export async function createContact(_prev: FormState, fd: FormData): Promise<For
 }
 
 export async function updateContact(id: string, _prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("contacts.edit");
+  if (denial) return { message: denial, savedAt: Date.now() };
   const values = formToObject(fd);
   const v = validateContact(values);
   if (!v.ok) return { errors: v.errors, values, message: "Check the highlighted fields.", savedAt: Date.now() };
@@ -38,6 +43,7 @@ export async function updateContact(id: string, _prev: FormState, fd: FormData):
 }
 
 export async function setContactArchived(fd: FormData) {
+  await requirePermission("contacts.edit");
   const id = String(fd.get("id") ?? "");
   const archived = fd.get("archived") === "1";
   await db.update(T).set({ archived }).where(eq(T.id, id));
@@ -47,6 +53,8 @@ export async function setContactArchived(fd: FormData) {
 }
 
 export async function deleteContact(_prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("records.delete");
+  if (denial) return { message: denial, savedAt: Date.now() };
   const id = String(fd.get("id") ?? "");
   const blocked = describeContactRefs(await contactReferences(id));
   if (blocked) return { message: `${blocked} Archive it instead.` };
@@ -60,6 +68,8 @@ export async function deleteContact(_prev: FormState, fd: FormData): Promise<For
 }
 
 export async function importContacts(records: Record<string, string>[]): Promise<ImportResult> {
+  const denial = await denied("contacts.edit");
+  if (denial) return { imported: 0, failed: [{ row: 0, name: "", error: denial }] };
   const result: ImportResult = { imported: 0, failed: [] };
   const valid: (typeof T.$inferInsert)[] = [];
   records.slice(0, 5000).forEach((r, i) => {

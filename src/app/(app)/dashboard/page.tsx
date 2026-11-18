@@ -9,6 +9,7 @@ import { addDaysIso, localIso } from "../reminders/group";
 import { entityHref } from "../reminders/entities";
 import { resolveEntityLabels } from "../reminders/entities.server";
 import { ReminderRow } from "../reminders/ReminderRow";
+import { currentPermissions } from "@/lib/permissions";
 
 export const metadata = { title: "Dashboard · Brains Cad Brain" };
 
@@ -16,6 +17,7 @@ export default async function DashboardPage() {
   const today = localIso();
   const weekAhead = addDaysIso(today, 7);
   const settings = await getSettings();
+  const p = await currentPermissions();
 
   const [estimates, statusRows, jobs, invoices, leads, reminders, activity, [{ n: planCount }], [{ n: catCount }]] = await Promise.all([
     db
@@ -74,15 +76,15 @@ export default async function DashboardPage() {
         subtitle={`${settings.businessName} · ${new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })}`}
         actions={
           <>
-            <LinkButton href="/reminders?new=1" variant="secondary">+ Reminder</LinkButton>
-            <LinkButton href="/estimates/new">+ New estimate</LinkButton>
+            {p["reminders.edit"] && <LinkButton href="/reminders?new=1" variant="secondary">+ Reminder</LinkButton>}
+            {p["estimates.edit"] && <LinkButton href="/estimates/new">+ New estimate</LinkButton>}
           </>
         }
       />
 
       <section aria-label="Key figures" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi label="Open estimates" href="/estimates" value={k.openCount} sub={<>{money(k.openValue, { cents: false })} in play</>} testId="kpi-open" />
-        <Kpi
+        {p["estimates.view"] && <Kpi label="Open estimates" href="/estimates" value={k.openCount} sub={<>{money(k.openValue, { cents: false })} in play</>} testId="kpi-open" />}
+        {p["estimates.view"] && <Kpi
           label="Win rate"
           href="/estimates"
           testId="kpi-winrate"
@@ -94,9 +96,9 @@ export default async function DashboardPage() {
               <>{k.accepted} won · {k.rejected} lost</>
             )
           }
-        />
-        <Kpi label="Active jobs" href="/jobs" value={activeJobs.length} sub={<>{inProgress} in progress</>} testId="kpi-jobs" />
-        <Kpi
+        />}
+        {p["jobs.view"] && <Kpi label="Active jobs" href="/jobs" value={activeJobs.length} sub={<>{inProgress} in progress</>} testId="kpi-jobs" />}
+        {p["invoices.view"] && <Kpi
           label="Invoices outstanding"
           href="/invoices"
           testId="kpi-invoices"
@@ -110,10 +112,10 @@ export default async function DashboardPage() {
               <>Nothing owed right now</>
             )
           }
-        />
+        />}
       </section>
 
-      {settings.showDashboardQuickStart && (
+      {settings.showDashboardQuickStart && p["settings.manage"] && (
         <Card
           title={`Getting started · ${stepsDone} of ${steps.length}`}
           actions={<Link href="/settings/display" className="text-xs text-ink-500 hover:text-brand-700">Hide this</Link>}
@@ -154,12 +156,12 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="min-w-0 space-y-6 lg:col-span-2">
-          <Card title="Recent estimates" pad={false} actions={<Link href="/estimates" className="text-xs font-medium text-brand-700 hover:underline">View all</Link>}>
+          {p["estimates.view"] && <Card title="Recent estimates" pad={false} actions={<Link href="/estimates" className="text-xs font-medium text-brand-700 hover:underline">View all</Link>}>
             {recent.length === 0 ? (
               <div className="px-4 py-10 text-center">
                 <p className="text-sm font-medium text-ink-800">No estimates yet</p>
                 <p className="mt-1 text-sm text-ink-500">Your latest quotes will appear here.</p>
-                <LinkButton href="/estimates/new" className="mt-3">Create an estimate</LinkButton>
+                {p["estimates.edit"] && <LinkButton href="/estimates/new" className="mt-3">Create an estimate</LinkButton>}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -192,9 +194,9 @@ export default async function DashboardPage() {
                 </table>
               </div>
             )}
-          </Card>
+          </Card>}
 
-          {settings.showDashboardEstimateSummary && (
+          {settings.showDashboardEstimateSummary && p["estimates.view"] && (
             <Card title="Estimate summary" actions={<span className="text-xs text-ink-500 tabular-nums">{real.length} estimate{real.length === 1 ? "" : "s"} · {money(real.reduce((a, e) => a + (e.quoteTotal || 0), 0), { cents: false })}</span>}>
               {real.length === 0 ? (
                 <p className="text-sm text-ink-400">Status totals appear once you have estimates.</p>

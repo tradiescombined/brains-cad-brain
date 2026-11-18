@@ -1,3 +1,4 @@
+import { routeDenied } from "@/lib/permissions";
 import { and, asc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { catalogueToCsv } from "@/lib/catalogue-csv";
@@ -5,6 +6,8 @@ import { categoryPathFn, getCatalogue, getCategories, orderTree } from "@/app/(a
 
 /** CSV export of a catalogue's items, ordered by category then description. Re-importable. */
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const denied = await routeDenied("costs.view");
+  if (denied) return denied;
   const { id } = await ctx.params;
   const c = await getCatalogue(id);
   if (!c) return new Response("Catalogue not found", { status: 404 });
