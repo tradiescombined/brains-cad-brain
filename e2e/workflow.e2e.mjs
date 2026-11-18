@@ -137,9 +137,9 @@ try {
   await tool("Rectangle");
   await clickAt(100, 100);
   await clickAt(300, 400); // 200×300 px = 2 m × 3 m
-  await page.getByTestId("measurement-M1").waitFor();
+  await page.getByTestId("takeoff-M1").waitFor();
   await page.waitForTimeout(300);
-  await check((await page.getByTestId("measurement-M1").getByTestId("measurement-value").textContent())?.trim() === "6.00 m²", "rectangle M1 = 6.00 m²");
+  await check((await page.getByTestId("takeoff-M1").getByTestId("takeoff-value").textContent())?.trim() === "6.00 m²", "rectangle M1 = 6.00 m²");
 
   // ───────────── 3c. Costings
   console.log("3c. Costings");

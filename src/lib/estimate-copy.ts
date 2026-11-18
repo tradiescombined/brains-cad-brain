@@ -7,7 +7,7 @@
  */
 import type { estimates, estimateItems, specifications, quoteOptions, estimateTasks, specItemDetails } from "../db/schema/estimates";
 import { parseDependsOn, remapTaskIds } from "./scheduling";
-import type { plans, measurements } from "../db/schema/takeoff";
+import type { plans, measurements, takeoffs } from "../db/schema/takeoff";
 
 export type EstimateRow = typeof estimates.$inferSelect;
 export type ItemRow = typeof estimateItems.$inferSelect;
@@ -17,6 +17,7 @@ export type TaskRow = typeof estimateTasks.$inferSelect;
 export type SpecItemDetailRow = typeof specItemDetails.$inferSelect;
 export type PlanRow = typeof plans.$inferSelect;
 export type MeasurementRow = typeof measurements.$inferSelect;
+export type TakeoffRow = typeof takeoffs.$inferSelect;
 
 export type IdGen = () => string;
 const uuid: IdGen = () => crypto.randomUUID();
@@ -48,6 +49,7 @@ export interface EstimateGraph {
   items: ItemRow[];
   specifications: SpecRow[];
   plans: PlanRow[];
+  takeoffs: TakeoffRow[];
   measurements: MeasurementRow[];
   quoteOptions: QuoteOptionsRow | null;
   /** Estimate schedule tasks. */
@@ -60,6 +62,7 @@ export interface CopiedGraph {
   items: Omit<ItemRow, never>[];
   specifications: Omit<SpecRow, "createdAt" | "updatedAt">[];
   plans: Omit<PlanRow, "createdAt" | "updatedAt">[];
+  takeoffs: Omit<TakeoffRow, "createdAt" | "updatedAt">[];
   measurements: Omit<MeasurementRow, "createdAt" | "updatedAt">[];
   quoteOptions: Omit<QuoteOptionsRow, "createdAt" | "updatedAt"> | null;
   specItemDetails: Omit<SpecItemDetailRow, "createdAt" | "updatedAt">[];
@@ -75,7 +78,9 @@ export function remapTasks<T extends { id: string; dependsOn: string }>(rows: T[
 /**
  * Builds insertable copies of an estimate's content for `targetEstimateId`.
  * - items & specifications keep their tree shape via id remapping
- * - measurements are re-pointed at the copied plans; items' measurementId follows
+ * - takeoffs are copied (codes kept, so formulas still resolve); measurements (shapes) are
+ *   re-pointed at the copied plans and takeoffs; items' measurementId (a takeoff or, on legacy
+ *   rows, a shape) follows
  * - quote options are copied without the share token or any client acceptance
  * - schedule tasks get fresh ids; dependency links are remapped to the copied tasks
  */
@@ -87,20 +92,33 @@ export function copyEstimateGraph(src: EstimateGraph, targetEstimateId: string, 
     return { ...stripTimestamps(p), id, estimateId: targetEstimateId };
   });
 
-  const measurementMap = new Map<string, string>();
+  // Item links point at a takeoff (or, on legacy rows, a shape): one map covers both.
+  const linkMap = new Map<string, string>();
+  const newTakeoffs = src.takeoffs.map((t) => {
+    const id = gen();
+    linkMap.set(t.id, id);
+    return { ...stripTimestamps(t), id, estimateId: targetEstimateId };
+  });
+
   const newMeasurements = src.measurements
-    .filter((m) => planMap.has(m.planId))
+    .filter((m) => planMap.has(m.planId) && (!m.takeoffId || linkMap.has(m.takeoffId)))
     .map((m) => {
       const id = gen();
-      measurementMap.set(m.id, id);
-      return { ...stripTimestamps(m), id, estimateId: targetEstimateId, planId: planMap.get(m.planId)! };
+      linkMap.set(m.id, id);
+      return {
+        ...stripTimestamps(m),
+        id,
+        estimateId: targetEstimateId,
+        planId: planMap.get(m.planId)!,
+        takeoffId: m.takeoffId ? linkMap.get(m.takeoffId)! : null,
+      };
     });
 
   const { rows: remappedItems, idMap: itemMap } = remapTree(src.items, gen);
   const items = remappedItems.map((i) => ({
     ...i,
     estimateId: targetEstimateId,
-    measurementId: i.measurementId ? measurementMap.get(i.measurementId) ?? null : null,
+    measurementId: i.measurementId ? linkMap.get(i.measurementId) ?? null : null,
   }));
 
   // Linked sections follow their costing category to its new id.
@@ -127,7 +145,7 @@ export function copyEstimateGraph(src: EstimateGraph, targetEstimateId: string, 
 
   const tasks = remapTasks(src.tasks.map(stripTimestamps), gen).map((t) => ({ ...t, estimateId: targetEstimateId }));
 
-  return { items, specifications: specs, plans: newPlans, measurements: newMeasurements, quoteOptions: qo, tasks, specItemDetails };
+  return { items, specifications: specs, plans: newPlans, takeoffs: newTakeoffs, measurements: newMeasurements, quoteOptions: qo, tasks, specItemDetails };
 }
 
 /* ----------------------------------------------------------------------------------------- */

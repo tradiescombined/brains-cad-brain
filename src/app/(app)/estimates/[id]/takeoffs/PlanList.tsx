@@ -48,9 +48,11 @@ export function useUploader(estimateId: string, onUploaded: (firstId: string | n
   return { input, open: () => inputRef.current?.click(), upload, progress };
 }
 
-export function PlanList({ plans, activeId, onActivate, onOpenUpload, onDropFiles, progress, onMessage }: {
+export function PlanList({ plans, activeId, highlight = null, onActivate, onOpenUpload, onDropFiles, progress, onMessage }: {
   plans: PlanView[];
   activeId: string | null;
+  /** Selected takeoff: plans holding its shapes are marked with how many. */
+  highlight?: { code: string; counts: Record<string, number> } | null;
   onActivate: (id: string) => void;
   onOpenUpload: () => void;
   onDropFiles: (files: File[]) => void;
@@ -81,7 +83,7 @@ export function PlanList({ plans, activeId, onActivate, onOpenUpload, onDropFile
       {progress && <div className="border-b border-ink-100 bg-brand-50 px-3 py-2 text-xs text-brand-800" role="status">{progress}</div>}
       <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
         {plans.map((p, i) => (
-          <PlanRow key={p.id} plan={p} index={i} total={plans.length} active={p.id === activeId} onActivate={() => onActivate(p.id)} onMessage={onMessage} />
+          <PlanRow key={p.id} plan={p} index={i} total={plans.length} active={p.id === activeId} mark={highlight && highlight.counts[p.id] ? `${highlight.code} ×${highlight.counts[p.id]}` : null} onActivate={() => onActivate(p.id)} onMessage={onMessage} />
         ))}
         {!plans.length && !progress && (
           <li className="rounded-md border border-dashed border-ink-300 p-4 text-center text-xs text-ink-500">
@@ -93,7 +95,7 @@ export function PlanList({ plans, activeId, onActivate, onOpenUpload, onDropFile
   );
 }
 
-function PlanRow({ plan, index, total, active, onActivate, onMessage }: { plan: PlanView; index: number; total: number; active: boolean; onActivate: () => void; onMessage: (msg: string, tone?: "ok" | "error") => void }) {
+function PlanRow({ plan, index, total, active, mark, onActivate, onMessage }: { plan: PlanView; index: number; total: number; active: boolean; mark: string | null; onActivate: () => void; onMessage: (msg: string, tone?: "ok" | "error") => void }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(plan.label);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -147,7 +149,8 @@ function PlanRow({ plan, index, total, active, onActivate, onMessage }: { plan: 
           <button type="button" onClick={onActivate} className="min-w-0 text-left">
             <div className="truncate text-xs font-medium text-ink-900" title={plan.label}>{plan.label}</div>
             <div className="mt-0.5 flex items-center gap-1 text-[11px] text-ink-500">
-              <span>{plan.measurementCount} meas.</span>
+              <span>{plan.measurementCount} shape{plan.measurementCount === 1 ? "" : "s"}</span>
+              {mark && <span data-testid="plan-highlight" className="rounded bg-brand-50 px-1 font-medium text-brand-800 ring-1 ring-brand-200">{mark}</span>}
               {!plan.scale && <span className="rounded bg-amber-50 px-1 text-amber-800">no scale</span>}
             </div>
           </button>
