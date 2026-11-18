@@ -75,7 +75,7 @@ try {
 
   for (const p of ["/dashboard", "/invoices", "/settings/users", "/jobs"]) {
     await go(p);
-    await check(Promise.resolve(page.url().includes("/forbidden?reason=signin")), `${p} → sign-in required`);
+    await check(Promise.resolve(page.url().includes("/no-access")), `${p} → sign-in required`);
   }
   await check(vis(page.getByTestId("sign-in-required").getByText("Sign in required")), "sign-in card rendered");
   const res = await page.request.get(base + "/api/export/clients");

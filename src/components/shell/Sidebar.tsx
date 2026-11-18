@@ -2,10 +2,25 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { UserButton } from "@clerk/nextjs";
 import type { NavSection } from "./nav";
+import { Brand } from "./Brand";
 import { cx } from "@/lib/format";
 
-export function Sidebar({ businessName, nav, userLabel }: { businessName: string; nav: NavSection[]; userLabel?: string }) {
+export type SidebarUser = { name: string; role: string; email: string };
+
+export function Sidebar({
+  businessName,
+  nav,
+  user,
+  showUserButton,
+}: {
+  businessName: string;
+  nav: NavSection[];
+  user: SidebarUser | null;
+  /** False when the test auth bypass is on (no ClerkProvider is mounted then). */
+  showUserButton: boolean;
+}) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   return (
@@ -45,22 +60,26 @@ export function Sidebar({ businessName, nav, userLabel }: { businessName: string
             </div>
           ))}
         </nav>
-        <div className="border-t border-ink-100 px-5 py-3 text-xs text-ink-500">
-          {businessName}
-          {userLabel && <div data-testid="current-user" className="mt-0.5 truncate text-ink-400">{userLabel}</div>}
+        <div className="border-t border-ink-100 px-4 py-3" data-testid="signed-in-user">
+          {user && (
+            <div className="flex items-center gap-2.5">
+              {showUserButton ? (
+                <UserButton appearance={{ elements: { avatarBox: { width: "2rem", height: "2rem" } } }} />
+              ) : (
+                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand-50 text-xs font-semibold text-brand-800" aria-hidden>
+                  {user.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}
+                </span>
+              )}
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium text-ink-900" title={user.email}>{user.name}</div>
+                <div className="truncate text-xs text-ink-500">{user.role}</div>
+              </div>
+            </div>
+          )}
+          <div className={cx("truncate text-xs text-ink-500", user && "mt-2")}>{businessName}</div>
         </div>
       </aside>
     </>
   );
 }
 
-function Brand() {
-  return (
-    <Link href="/dashboard" className="flex items-center gap-2">
-      <span className="grid size-7 place-items-center rounded-md bg-brand-600 text-sm font-bold text-white">B</span>
-      <span className="text-sm font-semibold leading-tight text-ink-900">
-        Brains Cad Brain
-      </span>
-    </Link>
-  );
-}

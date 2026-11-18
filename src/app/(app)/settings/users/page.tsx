@@ -7,6 +7,8 @@ import { DialogForm } from "../_components/DialogForm";
 import { DeleteForm } from "../_components/DeleteForm";
 import { deleteUser, saveUser } from "../actions";
 import { ROLES } from "../validation";
+import { date } from "@/lib/format";
+import { providerLabel } from "@/lib/user-resolution";
 
 export const metadata = { title: "Users · Settings" };
 
@@ -34,7 +36,7 @@ function UserFields({ u, roles = ROLES }: { u?: User; roles?: readonly string[] 
           <Input name="surname" defaultValue={u?.surname ?? ""} />
           <FieldError name="surname" />
         </Field>
-        <Field label="Email *">
+        <Field label="Email *" hint={u?.clerkUserId ? undefined : "They sign in with Google or Apple using this email."}>
           <Input name="email" type="email" defaultValue={u?.email ?? ""} />
           <FieldError name="email" />
         </Field>
@@ -48,6 +50,12 @@ function UserFields({ u, roles = ROLES }: { u?: User; roles?: readonly string[] 
         <FieldError name="role" />
       </Field>
       <Checkbox name="active" defaultChecked={u ? u.active : true} label="Active (can sign in and be assigned work)" />
+      {!u && (
+        <p className="text-xs text-ink-500">
+          Adding someone invites them: once added, they open this site and choose <strong>Continue with Google</strong> or{" "}
+          <strong>Continue with Apple</strong> using the email above. No password needed.
+        </p>
+      )}
     </>
   );
 }
@@ -64,7 +72,8 @@ export default async function UsersSettingsPage() {
         <div>
           <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-500">Users</h2>
           <p className="mt-0.5 text-xs text-ink-500">
-            {activeCount} active of {users.length}. Roles describe what each person is responsible for.
+            {activeCount} active of {users.length}. Add someone by email to invite them — they sign in with Google or Apple
+            using that email. Roles describe what each person is responsible for.
           </p>
         </div>
         <DialogForm action={saveUser} title="Add user" triggerLabel="+ Add user" submitLabel="Add user">
@@ -82,6 +91,7 @@ export default async function UsersSettingsPage() {
                 <th className="hidden px-3 py-2 font-semibold md:table-cell">Email</th>
                 <th className="hidden px-3 py-2 font-semibold lg:table-cell">Mobile</th>
                 <th className="px-3 py-2 font-semibold">Role</th>
+                <th className="hidden px-3 py-2 font-semibold sm:table-cell">Login</th>
                 <th className="px-3 py-2 font-semibold">Status</th>
                 <th className="px-4 py-2" />
               </tr>
@@ -106,6 +116,16 @@ export default async function UsersSettingsPage() {
                     <td className="hidden px-3 py-2 text-ink-700 lg:table-cell">{u.mobile || <span className="text-ink-300">—</span>}</td>
                     <td className="px-3 py-2">
                       <Badge tone={u.role === "Owner" ? "purple" : u.role === "Admin" ? "blue" : "grey"}>{u.role}</Badge>
+                    </td>
+                    <td className="hidden px-3 py-2 text-xs sm:table-cell" data-testid="login-status">
+                      {u.clerkUserId ? (
+                        <span className="text-ink-700">
+                          Signed in via {providerLabel(u.signInProvider)}
+                          {u.linkedAt && <> on {date(u.linkedAt)}</>}
+                        </span>
+                      ) : (
+                        <span className="text-ink-500">Invited — not signed in yet</span>
+                      )}
                     </td>
                     <td className="px-3 py-2">{u.active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}</td>
                     <td className="px-4 py-2">

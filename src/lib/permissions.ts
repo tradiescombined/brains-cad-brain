@@ -172,7 +172,7 @@ export async function denied(action: Action): Promise<string | null> {
 }
 
 export function forbiddenUrl(action: Action | null): string {
-  return action ? `/forbidden?need=${encodeURIComponent(action)}` : "/forbidden?reason=signin";
+  return action ? `/forbidden?need=${encodeURIComponent(action)}` : "/no-access";
 }
 
 /**

@@ -116,8 +116,8 @@ describe("server helpers", () => {
     for (const u of [null, user("Owner", false)]) {
       getCurrentUser.mockResolvedValue(u);
       expect(await denied("jobs.view")).toBe("Please sign in to continue.");
-      await expect(requirePermission("jobs.view")).rejects.toThrow("REDIRECT:/forbidden?reason=signin");
-      await expect(requireUser()).rejects.toThrow("REDIRECT:/forbidden?reason=signin");
+      await expect(requirePermission("jobs.view")).rejects.toThrow("REDIRECT:/no-access");
+      await expect(requireUser()).rejects.toThrow("REDIRECT:/no-access");
       expect((await routeDenied(null))?.status).toBe(401);
       const p = await currentPermissions();
       expect(p.user).toBeNull();
