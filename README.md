@@ -1,5 +1,8 @@
 # Brains Cad Brain
 
+**Download (Mac server kit):** https://github.com/tradiescombined/brains-cad-brain/releases/latest/download/BrainsCadBrain-Server-Kit.zip  
+Unzip it, open `START HERE.txt`, then double-click `Install on this Mac.command`.
+
 Estimating, takeoffs, quotes and job management for builders and trades.
 
 Lead → Estimate (plans & takeoffs, costings, specifications) → Quote (print or online acceptance)

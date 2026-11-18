@@ -1,0 +1,36 @@
+BRAINS CAD BRAIN: SERVER KIT
+============================
+
+Download: https://github.com/tradiescombined/brains-cad-brain/releases/latest
+Unzip this folder on the Mac that will be the server.
+Then pick ONE of these:
+
+OPTION 1: Let Claude do it (easiest)
+  1. On the server Mac, install Claude Code (https://claude.com/claude-code) and sign in.
+  2. Open Terminal, type:  claude   and press Enter.
+  3. Open "Paste this into Claude.md" from this folder, copy everything under the line,
+     and paste it into Claude. It sets everything up and asks you when it needs you.
+
+OPTION 2: Double-click installer
+  1. Double-click "Install on this Mac.command".
+     If macOS says it can't be opened: right-click it → Open → Open.
+  2. Follow what it says in the Terminal window. It will ask you to:
+       - type this Mac's password (for Homebrew)
+       - paste your Clerk sign-in keys into a file it opens
+
+WHAT YOU NEED READY
+  - Nothing for GitHub: the code downloads from github.com/tradiescombined/brains-cad-brain (public)
+  - A free Clerk account (https://clerk.com) for Google / Apple sign-in
+
+AFTER INSTALL
+  - On the server Mac open  http://localhost:3000  and SIGN IN FIRST (you become the Owner).
+  - Other computers/phones on the same Wi-Fi:  http://<mac-name>.local:3000
+  - It starts by itself when the Mac logs in, and backs up every night at 2am.
+  - The "Brains Cad Brain" app is in Applications: double-click it to start and use the system.
+  - Full guide (after install): ~/brains-cad-brain/docs/SELF-HOSTING.md
+
+FILES IN THIS KIT
+  START HERE.txt                 this file
+  Paste this into Claude.md      prompt for Claude Code on the server Mac
+  Install on this Mac.command    one-click installer
+  brains-cad-brain.bundle        offline copy of the code (used only if GitHub can't be reached)
