@@ -15,6 +15,8 @@ export const plans = sqliteTable("plans", {
   scaleX: real("scale_x"),
   scaleY: real("scale_y"),
   scaleUnit: text("scale_unit").notNull().default("mm"),
+  /** Pixel density the page was rendered at (PDF pages: 72 × render scale). Used for 1:N ratio scales. */
+  sourceDpi: real("source_dpi"),
   ...timestamps,
 });
 
@@ -46,3 +48,12 @@ export const measurements = sqliteTable("measurements", {
   value: real("value").notNull().default(0),
   ...timestamps,
 });
+
+/** Per-estimate measurement code counter so deleted codes (e.g. "M3") are never handed out again. */
+export const takeoffCounters = sqliteTable("takeoff_counters", {
+  estimateId: text("estimate_id").primaryKey(),
+  nextMeasurementNumber: integer("next_measurement_number").notNull().default(1),
+});
+
+export type Plan = typeof plans.$inferSelect;
+export type Measurement = typeof measurements.$inferSelect;
