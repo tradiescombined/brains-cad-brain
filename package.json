@@ -15,6 +15,7 @@
     "e2e": "for f in e2e/*.e2e.mjs; do echo \"== $f\"; node $f || exit 1; done"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.10.2",
     "@libsql/client": "^0.18.0",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.6",

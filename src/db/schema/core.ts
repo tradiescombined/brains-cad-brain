@@ -52,6 +52,11 @@ export const users = sqliteTable("users", {
     .notNull()
     .default("Estimator"),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
+  /** Clerk user id once this person has signed in (Google/Apple); null = invited, not signed in yet. */
+  clerkUserId: text("clerk_user_id").unique(),
+  /** How they first signed in ("google", "apple", ...) and when the login was linked — shown in Settings → Users. */
+  signInProvider: text("sign_in_provider"),
+  linkedAt: text("linked_at"),
   ...timestamps,
 });
 

@@ -43,3 +43,6 @@ data/*.db*
 .env*
 !.env.example
 .claude/
+
+# clerk configuration (can include secrets)
+/.clerk/
