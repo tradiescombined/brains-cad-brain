@@ -95,6 +95,18 @@ export const invoices = sqliteTable("invoices", {
   ...timestamps,
 });
 
+/** Payments received against client invoices. Invoice amountPaid + status are derived from these. */
+export const payments = sqliteTable("payments", {
+  id: id(),
+  invoiceId: text("invoice_id").notNull(),
+  date: text("date").notNull(),
+  amount: real("amount").notNull().default(0),
+  method: text("method").notNull().default("Bank transfer"),
+  reference: text("reference"),
+  notes: text("notes"),
+  ...timestamps,
+});
+
 /** Purchase orders / material orders to suppliers & subcontractors. */
 export const purchaseOrders = sqliteTable("purchase_orders", {
   id: id(),
