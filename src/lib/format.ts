@@ -25,9 +25,11 @@ export function todayIso(): string {
 }
 
 export function addDays(iso: string, days: number): string {
-  const d = new Date(iso + (iso.length === 10 ? "T00:00:00" : ""));
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  // Pure UTC calendar maths so Australian time zones never shift the date.
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
 }
 
 export function cx(...c: (string | false | null | undefined)[]): string {
