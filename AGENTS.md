@@ -7,3 +7,25 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Brains Cad Brain conventions (read before coding)
+
+- Product spec: `docs/SPEC.md`. Stack: Next.js 16 App Router, React 19, TypeScript, Tailwind v4,
+  Drizzle ORM + libsql (SQLite file `data/bcb.db`). `cacheComponents` is OFF; pages are dynamic.
+- `params` / `searchParams` are Promises: `const { id } = await params;`
+- All app pages live under `src/app/(app)/` (gets the sidebar shell). Public pages (e.g. `/q/[token]`)
+  go directly under `src/app/`.
+- Data writes: Server Actions in an `actions.ts` next to the route (`"use server"`), then
+  `revalidatePath(...)` and/or `redirect(...)`. Reads: query `db` directly in Server Components.
+- DB: `import { db, schema } from "@/db"`. Schema files in `src/db/schema/`. If your module needs a
+  new column/table, add it ONLY in the schema file for your module, then `npm run db:push`.
+- Estimate maths: ONLY via `src/lib/calc.ts` / `src/lib/estimates.ts` (`recalcEstimate`). Never
+  duplicate the maths. Formula parsing: `src/lib/expr.ts`.
+- Shared helpers: `@/lib/format` (money, date, num, cx, addDays), `@/lib/settings` (getSettings,
+  nextNumber, getLookups, getTaxRates, getDefaultTaxRate, logActivity).
+- UI kit: `@/components/ui` (Button, LinkButton, PageHeader, Card, Field, Input, Textarea, Select,
+  Checkbox, Badge, statusTone, Table/Th/Td, EmptyState, Stat, TabNav, DescList) and
+  `@/components/ui/client` (SubmitButton, ConfirmButton, Modal). Never use window.alert/confirm/prompt.
+- Look & feel: clean, dense, white cards on `ink-50` background, brand teal (`brand-600`). Money right
+  aligned with `tabular-nums`. Australian English and AUD.
+- Verify before finishing: `npx tsc --noEmit`, `npm test`, and `npx next build`.
