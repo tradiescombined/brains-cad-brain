@@ -50,3 +50,4 @@ data/*.db*
 
 # clerk configuration (can include secrets)
 /.clerk/
+/mac-app/build/
