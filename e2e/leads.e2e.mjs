@@ -1,25 +1,24 @@
 // Leads module end-to-end: BASE_URL=http://localhost:3102 node e2e/leads.e2e.mjs
-import { start, check, done } from "./helpers.mjs";
-import { createClient } from "@libsql/client";
+// Order-independent: the seeded "(sample) Deck & pergola" lead may be in any stage (linking an estimate
+// moves a lead), so board checks use this suite's own "Site visit" lead instead of the seed one.
+import { start, check, done, db as getDb, RUN, purgeLead, purgeEstimate, purgeClient } from "./helpers.mjs";
 
 const { page, base } = await start();
-const db = createClient({ url: process.env.DATABASE_URL ?? "file:./data/bcb.db" });
-const stamp = Date.now().toString(36);
+const db = getDb();
+const stamp = RUN;
 const title = `E2E kitchen ${stamp}`;
 const contact = `Pat Tester ${stamp}`;
-
-// When run in an isolated module worktree, sibling modules' routes (sidebar prefetches, the
-// /estimates/[id] page after conversion) do not exist yet and 404. Soften only those 404s to an
-// empty 204 so the console check stays meaningful; once integrated this is a no-op.
-await page.route(/\/(estimates|catalogues|jobs|schedule|orders|invoices|clients|contacts|reminders|settings|dashboard)(\/|\?|$)/, async (route) => {
-  const res = await route.fetch();
-  if (res.status() === 404) {
-    if (route.request().resourceType() === "document")
-      return route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>stub</title><p>Route provided by another module</p>" });
-    return route.fulfill({ status: 204, body: "" });
-  }
-  return route.fulfill({ response: res });
-});
+// Own token (not `stamp`) so the `?q=${stamp}` searches below still narrow to the lead created in the UI.
+const svTag = crypto.randomUUID().slice(0, 8);
+const siteVisitTitle = `E2E site visit ${svTag}`;
+const siteVisitId = crypto.randomUUID();
+{
+  const now = new Date().toISOString();
+  await db.execute({
+    sql: "insert into leads (id, number, title, contact_name, stage, estimated_value, archived, created_at, updated_at) values (?, ?, ?, ?, 'Site visit', 28000, 0, ?, ?)",
+    args: [siteVisitId, `LE2E-${svTag}`, siteVisitTitle, "Sam Rivers", now, now],
+  });
+}
 
 const settle = () => page.waitForTimeout(700); // let hydration / revalidation finish
 const goto = async (url) => {
@@ -128,14 +127,14 @@ console.log("Board");
 await goto(base + "/leads?view=board");
 const col = (s) => page.locator(`section[data-stage="${s}"]`);
 await check(visible(col("Contacted").getByText(title)), "card in Contacted column");
-await check(visible(col("Site visit").getByText("(sample) Deck & pergola")), "sample card in Site visit column");
+await check(visible(col("Site visit").getByText(siteVisitTitle)), "fixture card in Site visit column");
 await page.locator("article").filter({ hasText: title }).locator("select").selectOption("Site visit");
 await check(visible(col("Site visit").getByText(title)), "card moved to Site visit");
 await reload();
 await check(visible(col("Site visit").getByText(title)), "card move persisted");
 const [sv] = (await db.execute("select count(*) n, coalesce(sum(estimated_value), 0) v from leads where stage = 'Site visit' and archived = 0")).rows;
 const svTotal = "$" + Number(sv.v).toLocaleString("en-AU");
-await check(textIs(col("Site visit").getByTestId("column-total"), svTotal), `column total matches DB (${svTotal}, includes 28,000 sample + 52,000)`);
+await check(textIs(col("Site visit").getByTestId("column-total"), svTotal), `column total matches DB (${svTotal}, includes 28,000 fixture + 52,000)`);
 await check(Number(sv.v) >= 80000, "column sum includes moved lead");
 await check(textIs(col("Site visit").getByTestId("column-count"), String(sv.n)), "column count matches DB");
 
@@ -208,8 +207,9 @@ const detached = (await db.execute({ sql: "select lead_id from estimates where i
 await check(detached && detached.lead_id === null, "estimate kept, detached from deleted lead");
 
 // tidy up test data created along the way
-await db.execute({ sql: "delete from estimates where id = ?", args: [estId] });
-if (clientRow) await db.execute({ sql: "delete from clients where id = ?", args: [clientRow.id] });
+await purgeEstimate(estId);
+await purgeClient(clientRow?.id);
+await purgeLead(siteVisitId);
 
 console.log("Mobile layout");
 await page.setViewportSize({ width: 390, height: 800 });

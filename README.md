@@ -20,9 +20,17 @@ Production: `npx next build && npx next start -p 3000`.
 ```bash
 npm run typecheck     # TypeScript
 npm test              # unit tests (vitest)
-# browser tests (real Chrome, headless) against a running server:
+# browser tests (real Chrome, headless), one command: build, fresh temp DB, next start on a free
+# port, every suite twice (alphabetical, then reversed) to prove order-independence, summary table:
+npm run e2e:all                      # add -- --skip-build to reuse .next, or -- leads quote to filter
+# or against a running server (pass the same DATABASE_URL the server uses):
 BASE_URL=http://localhost:3000 npm run e2e
 ```
+
+`npm run e2e:all` never touches `data/bcb.db` (it uses `DATABASE_URL=file:<tmp>/bcb.db`). Suites share
+one database, so each creates its own uniquely named records (`RUN` in `e2e/helpers.mjs`), never mutates
+seed records (it clones them with `cloneEstimate` instead), and purges what it created. No route stubs or
+console-error filters.
 
 `e2e/integration.e2e.mjs` crawls every page and fails on any 404/500 or console error;
 `e2e/workflow.e2e.mjs` walks the whole lead-to-paid-invoice workflow.

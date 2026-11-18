@@ -1,18 +1,17 @@
 // Module 10 e2e: purchase orders, variations, invoices.
 // Run: BASE_URL=http://localhost:3110 node e2e/money.e2e.mjs
-import { createClient } from "@libsql/client";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
-import { start, check, done } from "./helpers.mjs";
+import { start, check, done, db, one, RUN, purgeJob, purgeClient } from "./helpers.mjs";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const sql = createClient({ url: process.env.DATABASE_URL ?? `file:${path.join(root, "data/bcb.db")}` });
-const one = async (q, args = []) => (await sql.execute({ sql: q, args })).rows[0];
+const sql = db();
 
-// ---- fixture: a job with a contract and budget lines (jobs are owned by module 9)
+// ---- fixture: own client + a job with a contract and budget lines (jobs are owned by module 9)
 const jobId = crypto.randomUUID();
-const tag = Date.now().toString(36).toUpperCase();
-const client = await one("select id from clients limit 1");
+const tag = RUN.toUpperCase();
+const client = { id: crypto.randomUUID() };
+await sql.execute({
+  sql: "insert into clients (id, name, client_type, email, is_sample, archived, created_at, updated_at) values (?, ?, 'Person', 'money.e2e@example.com', 0, 0, datetime('now'), datetime('now'))",
+  args: [client.id, `E2E money client ${tag}`],
+});
 await sql.execute({
   sql: `insert into jobs (id, number, name, client_id, status, site_address, site_city_town, site_state, site_postcode, contract_value, archived, created_at, updated_at)
         values (?, ?, ?, ?, 'In progress', '7 Test Ave', 'Brisbane', 'QLD', '4000', 110000, 0, datetime('now'), datetime('now'))`,
@@ -36,10 +35,6 @@ const timber = await one("select id from contacts where business_name = 'Timber 
 const spark = await one("select id from contacts where business_name = 'Spark Electrical' limit 1");
 
 const { page, base } = await start();
-// Other modules' routes (sidebar, job overview tabs) don't exist in this worktree; Next prefetches
-// them in production and they 404. Stub only those RSC prefetches so they don't count as console errors.
-const MINE = /^\/(orders|invoices|dashboard|jobs\/[^/]+\/(orders|variations|invoices))(\/|$)/;
-await page.route((u) => u.searchParams.has("_rsc") && !MINE.test(u.pathname), (r) => r.fulfill({ status: 204, body: "" }));
 const J = `${base}/jobs/${jobId}`;
 const text = (sel) => page.locator(sel).first().innerText();
 // Client-only buttons (modals, inline confirms) do nothing until React hydrates: retry until the target shows.
@@ -274,12 +269,8 @@ try {
   console.log(String(e.stack ?? e).split("\n").slice(0, 8).join("\n"));
   await check(Promise.resolve(false), `unexpected error: ${String(e).split("\n")[0]}`);
 } finally {
-  // cleanup fixture
-  const invIds = (await sql.execute({ sql: "select id from invoices where job_id = ?", args: [jobId] })).rows.map((r) => r.id);
-  for (const id of invIds) await sql.execute({ sql: "delete from payments where invoice_id = ?", args: [id] });
-  for (const t of ["invoices", "variations", "purchase_orders", "actual_costs", "job_budget_lines", "activity"]) {
-    await sql.execute({ sql: `delete from ${t} where ${t === "activity" ? "entity_id" : "job_id"} = ?`, args: [jobId] });
-  }
-  await sql.execute({ sql: "delete from jobs where id = ?", args: [jobId] });
+  // cleanup fixture (purgeJob also removes the job's invoices, payments, variations, orders, costs)
+  await purgeJob(jobId);
+  await purgeClient(client.id);
 }
 await done();

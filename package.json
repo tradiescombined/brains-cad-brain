@@ -12,6 +12,7 @@
     "db:reset": "rm -f data/bcb.db && drizzle-kit push --force && tsx scripts/seed.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "e2e:all": "node scripts/e2e-all.mjs",
     "e2e": "for f in e2e/*.e2e.mjs; do echo \"== $f\"; node $f || exit 1; done"
   },
   "dependencies": {
