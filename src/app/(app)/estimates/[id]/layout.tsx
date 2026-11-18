@@ -11,7 +11,7 @@ import { RouteTabs } from "@/components/shell/RouteTabs";
 import { money } from "@/lib/format";
 import { EstimateHeaderActions } from "./EstimateHeaderActions";
 
-export default async function EstimateLayout({ children, params }: LayoutProps<"/estimates/[id]">) {
+export default async function EstimateLayout({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [e] = await db.select().from(schema.estimates).where(eq(schema.estimates.id, id));
   if (!e) notFound();

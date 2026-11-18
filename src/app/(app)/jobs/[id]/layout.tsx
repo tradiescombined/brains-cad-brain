@@ -11,7 +11,7 @@ import { Badge, statusTone } from "@/components/ui";
 import { RouteTabs } from "@/components/shell/RouteTabs";
 import { money } from "@/lib/format";
 
-export default async function JobLayout({ children, params }: LayoutProps<"/jobs/[id]">) {
+export default async function JobLayout({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [j] = await db.select().from(schema.jobs).where(eq(schema.jobs.id, id));
   if (!j) notFound();
