@@ -10,6 +10,7 @@
     "db:push": "drizzle-kit push --force",
     "db:seed": "tsx scripts/seed.ts",
     "db:reset": "rm -f data/bcb.db && drizzle-kit push --force && tsx scripts/seed.ts",
+    "db:demo": "rm -f data/bcb.db && drizzle-kit push --force && tsx scripts/seed.ts && tsx scripts/seed-demo.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "e2e:all": "node scripts/e2e-all.mjs",
