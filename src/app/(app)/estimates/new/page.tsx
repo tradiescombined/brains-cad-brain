@@ -1,7 +1,7 @@
 import { asc, eq, and, count } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { PageHeader } from "@/components/ui";
-import { getLookups } from "@/lib/settings";
+import { getLookups, getSettings } from "@/lib/settings";
 import { money } from "@/lib/format";
 import { NewEstimateForm } from "./NewEstimateForm";
 
@@ -35,7 +35,13 @@ export default async function NewEstimatePage({ searchParams }: { searchParams: 
     .where(eq(schema.clients.archived, false))
     .orderBy(asc(schema.clients.name));
   const buildingTypes = (await getLookups("building_type")).map((l) => l.name);
-  const initialTemplate = templates.some((t) => t.id === sp.template) ? sp.template! : "";
+  // Explicit ?template= wins; ?template=blank (or none) falls back to the default template, if set.
+  const defaultId = (await getSettings()).defaultTemplateId;
+  const initialTemplate = templates.some((t) => t.id === sp.template)
+    ? sp.template!
+    : sp.template !== "blank" && defaultId && templates.some((t) => t.id === defaultId)
+      ? defaultId
+      : "";
 
   return (
     <div className="mx-auto max-w-4xl">

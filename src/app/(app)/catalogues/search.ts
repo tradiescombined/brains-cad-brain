@@ -23,7 +23,7 @@ export type CatalogueSearchResult = {
   itemCode: string | null;
   description: string;
   details: string | null;
-  costType: "Material" | "Labour" | "Equipment" | "Subcontractor" | "Other";
+  costType: "Material" | "Labour" | "MatLab" | "Equipment" | "Subcontractor" | "Other";
   uom: string;
   unitCost: number;
   isRecipe: boolean;

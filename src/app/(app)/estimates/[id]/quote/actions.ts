@@ -7,6 +7,11 @@ import { db, schema } from "@/db";
 import { getLookups, logActivity } from "@/lib/settings";
 import { getOrCreateQuoteOptions } from "@/components/quote/data";
 import { BOOLEAN_OPTIONS, asAllowancePrint } from "@/components/quote/model";
+import { headers } from "next/headers";
+import { getSettings } from "@/lib/settings";
+import { addDaysIso, joinAddress, quoteIssueDate } from "@/lib/merge-fields";
+import { todayIso } from "@/lib/format";
+import { buildQuoteEmail, type QuoteEmail } from "@/lib/quote-email";
 
 export type QuoteActionState = { ok: boolean; message: string; at: number } | null;
 
@@ -69,4 +74,44 @@ export async function revokeShareLink(fd: FormData) {
   await db.update(schema.quoteOptions).set({ shareToken: null }).where(and(eq(schema.quoteOptions.estimateId, id)));
   await logActivity("estimate", id, "quote_link_revoked", "Client quote link revoked");
   paths(id);
+}
+
+/**
+ * Compose the "Email quote" message: makes sure the online quote link exists, then returns
+ * recipient, subject and body for a mailto: link (sent from the builder's own email app).
+ */
+export async function prepareQuoteEmail(estimateId: string): Promise<({ ok: true; shareUrl: string } & QuoteEmail) | { ok: false; error: string }> {
+  const [est] = await db.select().from(schema.estimates).where(eq(schema.estimates.id, String(estimateId)));
+  if (!est) return { ok: false, error: "Estimate not found" };
+  let opts = await getOrCreateQuoteOptions(est.id);
+  if (!opts.shareToken) {
+    await db.update(schema.quoteOptions).set({ shareToken: randomBytes(18).toString("base64url") }).where(eq(schema.quoteOptions.estimateId, est.id));
+    await logActivity("estimate", est.id, "quote_link_created", "Client quote link created (email)");
+    opts = await getOrCreateQuoteOptions(est.id);
+    paths(est.id);
+  }
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
+  const shareUrl = `${proto}://${host}/q/${opts.shareToken}`;
+  let to = est.clientEmail;
+  if (!to && est.clientId) {
+    const [c] = await db.select({ email: schema.clients.email }).from(schema.clients).where(eq(schema.clients.id, est.clientId));
+    to = c?.email ?? null;
+  }
+  const s = await getSettings();
+  const issued = quoteIssueDate(est.sentAt, est.datePrepared, todayIso());
+  const email = buildQuoteEmail({
+    to,
+    clientName: est.clientName,
+    estimateName: est.name,
+    number: est.number,
+    quoteTotal: est.quoteTotal,
+    validUntil: addDaysIso(issued, opts.validDays),
+    quoteUrl: shareUrl,
+    siteAddress: joinAddress(est.siteAddress, est.siteCityTown, est.siteState, est.sitePostcode) || null,
+    businessName: s.tradingName || s.businessName,
+    senderPhone: s.phone,
+  });
+  return { ok: true, shareUrl, ...email };
 }

@@ -6,12 +6,13 @@ import { cx } from "@/lib/format";
 export const SETTINGS_SECTIONS = [
   { href: "/settings/business", label: "Business details", desc: "Name, contact details, logo and brand colour" },
   { href: "/settings/users", label: "Users", desc: "Team members, roles and access" },
-  { href: "/settings/tax-rates", label: "Tax rates", desc: "GST and other tax codes" },
+  { href: "/settings/tax-rates", label: "Tax rates", desc: "Tax profile, codes and defaults by cost type" },
   { href: "/settings/numbering", label: "Numbering", desc: "Prefixes and next numbers" },
   { href: "/settings/quote-defaults", label: "Quote defaults", desc: "Markup, validity, payment terms" },
   { href: "/settings/lists", label: "Lists", desc: "Statuses, types, units and folders" },
   { href: "/settings/display", label: "Display preferences", desc: "Dashboard panels" },
   { href: "/settings/spec-library", label: "Specification library", desc: "Reusable specification templates" },
+  { href: "/settings/documents", label: "Business documents", desc: "Licences, insurance and company files" },
 ];
 
 export function SettingsNav() {

@@ -3,6 +3,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Card, Input, Select } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/client";
+import { PhoneField } from "@/components/ui/PhoneInput";
 import { cx } from "@/lib/format";
 import type { FormState } from "./actions";
 import { AU_STATES, F, FormMessage } from "./FormBits";
@@ -78,12 +79,8 @@ export function ClientForm({ action, initial, sources, categories, submitLabel, 
             <F label="Email" error={e.email} className="sm:col-span-2">
               <Input name="email" type="email" defaultValue={val("email")} placeholder="name@example.com" />
             </F>
-            <F label="Mobile" error={e.mobile}>
-              <Input name="mobile" type="tel" defaultValue={val("mobile")} placeholder="04xx xxx xxx" />
-            </F>
-            <F label="Phone" error={e.phone}>
-              <Input name="phone" type="tel" defaultValue={val("phone")} />
-            </F>
+            <PhoneField label="Mobile" error={e.mobile} name="mobile" defaultValue={val("mobile")} placeholder="04xx xxx xxx" />
+            <PhoneField label="Phone" error={e.phone} name="phone" defaultValue={val("phone")} />
           </div>
         </Card>
         <Card title="Address">

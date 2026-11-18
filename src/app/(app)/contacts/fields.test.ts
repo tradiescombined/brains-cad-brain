@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { insuranceLabel, insuranceStatus, stars, validateContact } from "./fields";
+import { insuranceLabel, insuranceStatus, parseGstRegistered, stars, validateContact } from "./fields";
 
 describe("validateContact", () => {
   it("requires name or business name and falls back to business name", () => {
@@ -46,5 +46,16 @@ describe("insuranceStatus", () => {
     expect(stars(3)).toBe("★★★☆☆");
     expect(stars(null)).toBe("☆☆☆☆☆");
     expect(stars(9)).toBe("★★★★★");
+  });
+});
+
+describe("parseGstRegistered", () => {
+  it("defaults to registered for imports, unticked form box means not registered", () => {
+    expect(parseGstRegistered(undefined)).toBe(true);
+    expect(parseGstRegistered(undefined, "1")).toBe(false);
+    expect(parseGstRegistered("on", "1")).toBe(true);
+    expect(parseGstRegistered("No")).toBe(false);
+    expect(parseGstRegistered("Yes")).toBe(true);
+    expect(validateContact({ name: "X", gstRegisteredField: "1" }).ok && (validateContact({ name: "X", gstRegisteredField: "1" }) as { data: { gstRegistered: boolean } }).data.gstRegistered).toBe(false);
   });
 });

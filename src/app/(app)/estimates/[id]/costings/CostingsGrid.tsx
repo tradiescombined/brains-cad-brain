@@ -3,13 +3,14 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { EstimateItem } from "@/db/schema";
 import { calculate, totalMarkupPercent, type MarkupLine, type Redistribution, type Rounding } from "@/lib/calc";
 import { cx, money } from "@/lib/format";
+import { defaultTaxable } from "@/lib/tax-defaults";
 import {
   canIndent, canMove, canOutdent, childrenOf, depthOf, diffRows, duplicateSubtree, indentRow, insertAfter, insertAt,
   isEmptyPatch, moveRow, moveToCategory, outdentRow, removeSubtrees, subtreeIds, visibleOrder, categoryOf,
 } from "@/lib/costings-tree";
 import { addCatalogueItems, applyCostingsPatch, saveMarkupLines, setRounding as setRoundingAction, type ActionResult } from "./actions";
 import {
-  AllowanceSelect, Chevron, COST_TYPES, CostTypeSelect, Dialog, EditCell, editNumber, fmt, isPlainNumber, parseNumberInput,
+  AllowanceSelect, Chevron, COST_TYPES, CostTypeSelect, costTypeLabel, Dialog, EditCell, editNumber, fmt, isPlainNumber, parseNumberInput,
   type CostTypeName,
 } from "./cells";
 import { CatalogueModal } from "./CatalogueModal";
@@ -37,6 +38,8 @@ export function CostingsGrid(props: {
   suppliers: { id: string; name: string; type: string | null }[];
   catalogues: { id: string; name: string; status: string }[];
   catalogueCategories: { id: string; catalogueId: string; name: string }[];
+  /** Default taxable flag per cost type (from Settings > Tax rates). */
+  taxDefaults?: Record<string, boolean>;
 }) {
   const { estimateId, items, measurements, taxRate, uoms, suppliers } = props;
 
@@ -209,12 +212,18 @@ export function CostingsGrid(props: {
   };
 
   // ---------------------------------------------------------------- row factories & ops
-  const newRow = (p: Partial<Row>): Row => ({
-    id: crypto.randomUUID(), estimateId, parentId: null, kind: "item", sortOrder: 0, description: "", itemCode: null, costType: "Material",
-    allowanceType: "none", uom: null, quantityExpr: "1", quantity: 1, unitCost: 0, markupPercent: null, taxable: true, supplierId: null,
-    catalogueItemId: null, measurementId: null, notes: null, showInSpecification: false, hiddenOnQuote: false, status: "Incomplete",
-    total: 0, totalIncMarkup: 0, ...p,
-  });
+  const newRow = (p: Partial<Row>): Row => {
+    const costType = p.costType ?? "Material";
+    return {
+      id: crypto.randomUUID(), estimateId, parentId: null, kind: "item", sortOrder: 0, description: "", itemCode: null, costType,
+      allowanceType: "none", uom: null, quantityExpr: "1", quantity: 1, unitCost: 0, markupPercent: null, taxable: defaultTaxable(props.taxDefaults, costType), supplierId: null,
+      catalogueItemId: null, measurementId: null, notes: null, showInSpecification: false, hiddenOnQuote: false, status: "Incomplete",
+      total: 0, totalIncMarkup: 0, ...p,
+    };
+  };
+  /** Cost type change; the taxable flag follows the new type's default unless the user had overridden it. */
+  const costTypePatch = (r: Row, t: Row["costType"]): Partial<Row> =>
+    r.taxable === defaultTaxable(props.taxDefaults, r.costType) ? { costType: t, taxable: defaultTaxable(props.taxDefaults, t) } : { costType: t };
 
   const addCategory = (afterId?: string | null) => {
     const r = newRow({ kind: "category", description: "New category", quantityExpr: null, quantity: 0 });
@@ -279,7 +288,7 @@ export function CostingsGrid(props: {
   };
   const bulkSet = (p: Partial<Row>) => {
     const t = new Set(bulkTargets());
-    commit(rowsRef.current.map((r) => (t.has(r.id) ? { ...r, ...p } : r)));
+    commit(rowsRef.current.map((r) => (t.has(r.id) ? { ...r, ...(p.costType ? { ...p, ...costTypePatch(r, p.costType) } : p) } : r)));
   };
 
   const insertMeasure = (token: string) => {
@@ -576,7 +585,7 @@ export function CostingsGrid(props: {
                         {hasKids ? (
                           <span className="block rounded-full bg-brand-50 px-2 py-0.5 text-center text-[11px] font-semibold text-brand-800 ring-1 ring-inset ring-brand-200" title="Cost comes from its sub-items">Recipe</span>
                         ) : (
-                          <CostTypeSelect rowId={id} value={r.costType} onChange={(v) => updateRow(id, { costType: v })} />
+                          <CostTypeSelect rowId={id} value={r.costType} onChange={(v) => updateRow(id, costTypePatch(r, v))} />
                         )}
                       </td>
                       <td className={cx(cellBase, "pt-1.5")}>
@@ -971,7 +980,7 @@ function BulkBar({
       <span className="font-medium text-brand-900">{count} selected</span>
       <select aria-label="Set cost type" className={sel} value="" onChange={(e) => e.target.value && onCostType(e.target.value as CostTypeName)}>
         <option value="">Set cost type…</option>
-        {COST_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+        {COST_TYPES.map((t) => <option key={t} value={t}>{costTypeLabel(t)}</option>)}
       </select>
       <span className="flex items-center gap-1">
         <input

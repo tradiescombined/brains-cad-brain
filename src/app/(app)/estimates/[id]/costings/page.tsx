@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { loadEstimate } from "@/lib/estimates";
-import { getLookups } from "@/lib/settings";
+import { getLookups, getTaxRates } from "@/lib/settings";
+import { taxableDefaults } from "@/lib/tax-defaults";
 import { parseMarkupLines } from "@/lib/calc";
 import { CostingsGrid } from "./CostingsGrid";
 
@@ -12,7 +13,7 @@ export default async function CostingsPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const l = await loadEstimate(id);
   if (!l) notFound();
-  const [uoms, contacts, catalogues, catCategories] = await Promise.all([
+  const [uoms, contacts, catalogues, catCategories, taxRates] = await Promise.all([
     getLookups("unit_measure"),
     db
       .select({ id: schema.contacts.id, name: schema.contacts.name, businessName: schema.contacts.businessName, contactType: schema.contacts.contactType })
@@ -24,6 +25,7 @@ export default async function CostingsPage({ params }: { params: Promise<{ id: s
       .select({ id: schema.catalogueCategories.id, catalogueId: schema.catalogueCategories.catalogueId, name: schema.catalogueCategories.name })
       .from(schema.catalogueCategories)
       .orderBy(asc(schema.catalogueCategories.sortOrder), asc(schema.catalogueCategories.name)),
+    getTaxRates(),
   ]);
   const e = l.estimate;
   return (
@@ -43,6 +45,7 @@ export default async function CostingsPage({ params }: { params: Promise<{ id: s
       suppliers={contacts.map((c) => ({ id: c.id, name: c.businessName || c.name, type: c.contactType }))}
       catalogues={catalogues}
       catalogueCategories={catCategories}
+      taxDefaults={taxableDefaults(taxRates)}
     />
   );
 }

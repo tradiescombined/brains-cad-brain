@@ -97,6 +97,18 @@ describe("calculate", () => {
     expect(red.items.n.displaySell).toBe(1300);
   });
 
+  it("totals the Mat + Lab cost type separately and taxes only taxable items", () => {
+    const r = calculate({
+      items: [cat("c", 1), item("ml", "c", 1, 2, 150, { costType: "MatLab" }), item("s", "c", 2, 1, 1000, { costType: "Subcontractor", taxable: false })],
+      markupLines: [{ name: "Markup", percent: 10 }],
+      taxRate: 0.1,
+    });
+    expect(r.byCostType.MatLab).toBe(300);
+    expect(r.byCostType.Subcontractor).toBe(1000);
+    expect(r.taxTotal).toBe(33); // (300 + 30) × 10%, the GST-free subcontract adds none
+    expect(r.quoteTotal).toBe(1463);
+  });
+
   it("rounds quote total up", () => {
     const r = calculate({ items: [cat("c", 1), item("a", "c", 1, 1, 1234.56)], markupLines: [], taxRate: 0, rounding: "hundred" });
     expect(r.quoteTotal).toBe(1300);

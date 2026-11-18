@@ -7,7 +7,7 @@
  *   against existing item codes.
  */
 
-export const COST_TYPES = ["Material", "Labour", "Equipment", "Subcontractor", "Other"] as const;
+export const COST_TYPES = ["Material", "Labour", "MatLab", "Equipment", "Subcontractor", "Other"] as const;
 export type CostType = (typeof COST_TYPES)[number];
 
 export type ImportField = "code" | "description" | "costType" | "uom" | "unitCost" | "category" | "details";
@@ -121,6 +121,7 @@ export function normaliseCostType(s: string | null | undefined): CostType | null
   const v = (s ?? "").toLowerCase().replace(/[^a-z]/g, "");
   if (!v) return null;
   if (/^(mat|materials?|supply|supplies|product)$/.test(v)) return "Material";
+  if (/^(matlab|materiallabour|materialandlabour|materialslabour|materialsandlabour|materiallabor|materialandlabor|supplyandinstall|supplyinstall|supplyfix|supplyandfix)$/.test(v)) return "MatLab";
   if (/^(lab|labour|labor|lbr|wages?|trade)$/.test(v)) return "Labour";
   if (/^(equip|equipment|plant|hire|plantandequipment|machinery|tools?)$/.test(v)) return "Equipment";
   if (/^(sub|subs|subcontractor|subcontract|subcontractors|subbie|contractor)$/.test(v)) return "Subcontractor";

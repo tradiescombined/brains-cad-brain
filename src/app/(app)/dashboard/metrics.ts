@@ -46,6 +46,8 @@ export function estimateKpis(estimates: EstimateLite[], statuses: StatusLookup[]
     closed,
     /** 0..1, or null until enough estimates are closed to be meaningful. */
     winRate: closed >= MIN_CLOSED_FOR_WIN_RATE ? accepted / closed : null,
+    /** Average quote total of won estimates; shown alongside the win rate once it unlocks. */
+    averageWinValue: closed >= MIN_CLOSED_FOR_WIN_RATE && accepted > 0 ? round2(acceptedValue / accepted) : null,
     closesNeeded: Math.max(0, MIN_CLOSED_FOR_WIN_RATE - closed),
   };
 }

@@ -60,7 +60,7 @@ export const estimateItems = sqliteTable("estimate_items", {
   sortOrder: integer("sort_order").notNull().default(0),
   description: text("description").notNull().default(""),
   itemCode: text("item_code"),
-  costType: text("cost_type", { enum: ["Material", "Labour", "Equipment", "Subcontractor", "Other"] })
+  costType: text("cost_type", { enum: ["Material", "Labour", "MatLab", "Equipment", "Subcontractor", "Other"] })
     .notNull()
     .default("Material"),
   /** Normal, Prime Cost (PC) or Provisional Sum (PS) */

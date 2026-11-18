@@ -196,3 +196,18 @@ export async function renameTemplate(_prev: FormState, fd: FormData): Promise<Fo
   revalidateEstimate(id);
   return { ok: true, message: "Saved" };
 }
+
+/** Make a template the preselected starting point for new estimates (or clear it). */
+export async function setDefaultTemplate(fd: FormData) {
+  const id = String(fd.get("id") ?? "");
+  const s = await getSettings();
+  let next: string | null = null;
+  if (id && fd.get("clear") !== "1") {
+    const [t] = await db.select({ id: schema.estimates.id }).from(schema.estimates).where(and(eq(schema.estimates.id, id), eq(schema.estimates.isTemplate, true)));
+    if (!t) return;
+    next = t.id;
+  }
+  await db.update(schema.businessSettings).set({ defaultTemplateId: next }).where(eq(schema.businessSettings.id, s.id));
+  revalidatePath("/estimates/templates");
+  revalidatePath("/estimates/new");
+}

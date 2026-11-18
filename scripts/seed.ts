@@ -24,29 +24,34 @@ async function main() {
     }
   }
 
+  // Every cost type defaults to GST on both sides (Settings > Tax rates can change this per cost type).
+  const ALL_COST_TYPES = JSON.stringify(["Material", "Labour", "MatLab", "Equipment", "Subcontractor", "Other"]);
   const [gst] = await db
     .insert(schema.taxRates)
     .values([
-      { code: "GST", name: "GST on income (10%)", rate: 0.1, appliesTo: "income", isDefault: true },
+      { code: "GST", name: "GST on income (10%)", rate: 0.1, appliesTo: "income", isDefault: true, defaultCostTypes: ALL_COST_TYPES },
       { code: "FRE", name: "GST free income", rate: 0, appliesTo: "income" },
-      { code: "GST-EX", name: "GST on expenses (10%)", rate: 0.1, appliesTo: "expense", isDefault: true },
+      { code: "GST-EX", name: "GST on expenses (10%)", rate: 0.1, appliesTo: "expense", isDefault: true, defaultCostTypes: ALL_COST_TYPES },
       { code: "FRE-EX", name: "GST free expenses", rate: 0, appliesTo: "expense" },
     ])
     .returning();
 
-  await db.insert(schema.businessSettings).values({ businessName: "My Building Co", defaultTaxRateId: gst.id });
+  await db.insert(schema.businessSettings).values({ businessName: "My Building Co", defaultTaxRateId: gst.id, taxProfileName: "GST (Australia)", taxProfileCode: "GST" });
   await db.insert(schema.users).values({ firstName: "Owner", email: "owner@example.com", role: "Owner" });
 
   const L = (kind: string, names: string[], flagName?: string) =>
     names.map((name, i) => ({ kind, name, sortOrder: i + 1, isSystem: true, flag: name === flagName }));
   await db.insert(schema.lookups).values([
-    ...L("estimate_status", ["Draft", "In Progress", "Sent", "Accepted", "Rejected", "On Hold"], "Accepted"),
-    ...L("building_type", ["Single storey", "Double storey", "Renovation & extension", "Kitchen", "Bathroom", "Deck", "Fence", "Landscaping", "Roofing", "Painting", "Electrical", "Plumbing", "Light commercial", "Custom"]),
-    ...L("unit_measure", ["ea", "m", "lm", "m2", "m3", "hr", "day", "kg", "t", "L", "item", "sheet", "box", "set", "allow"]),
-    ...L("contact_type", ["Supplier", "Subcontractor", "Consultant", "Council", "Other"]),
-    ...L("contact_group", ["Carpentry", "Concreting", "Electrical", "Plumbing", "Plastering", "Painting", "Roofing", "Tiling", "Landscaping"]),
-    ...L("client_source", ["Referral", "Website", "Google", "Facebook", "Instagram", "Repeat client", "Signage", "Other"]),
-    ...L("client_type", ["Homeowner", "Developer", "Builder", "Commercial", "Government"]),
+    ...L("estimate_status", ["Draft", "In Progress", "Sent", "Accepted", "Rejected", "On Hold", "Not sent", "Final", "Awaiting approval"], "Accepted"),
+    ...L("building_type", ["Single storey", "Double storey", "Renovation & extension", "Kitchen", "Bathroom", "Deck", "Fence", "Landscaping", "Roofing", "Painting", "Electrical", "Plumbing", "Light commercial", "Custom",
+      "Kitchen renovation", "Bathroom renovation", "Commercial", "Shop / retail", "Residential repairs & maintenance", "Commercial repairs & maintenance",
+      "Granny flat", "Shed", "Joinery", "Insurance work", "Office fitout", "Fitout", "Duplex", "Design only", "Apartment"]),
+    ...L("unit_measure", ["ea", "m", "lm", "m2", "m3", "hr", "day", "kg", "t", "L", "item", "sheet", "box", "set", "allow",
+      "$", "allowance", "bag", "roll", "pair", "length", "per 100", "per 1000", "per job", "hour", "week", "month", "each", "lot", "pt"]),
+    ...L("contact_type", ["Supplier", "Subcontractor", "Consultant", "Council", "Other", "Builder", "Carpenter", "Electrician", "Plumber", "Tiler", "Plasterer", "Painter", "Roofer", "Concreter"]),
+    ...L("contact_group", ["Carpentry", "Concreting", "Electrical", "Plumbing", "Plastering", "Painting", "Roofing", "Tiling", "Landscaping", "Contractors", "Employees", "Suppliers"]),
+    ...L("client_source", ["Referral", "Website", "Google", "Facebook", "Instagram", "Repeat client", "Signage", "Other", "Word of mouth", "Builder referral", "Trade show"]),
+    ...L("client_type", ["Homeowner", "Developer", "Builder", "Commercial", "Government", "Lead", "Investor", "Strata / body corporate"]),
     ...L("document_folder", ["Unassigned", "Plans", "Contracts", "Photos", "Permits", "Invoices"]),
   ]);
 

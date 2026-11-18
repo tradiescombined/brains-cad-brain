@@ -56,6 +56,7 @@ with `[M1]` takeoff references and `[W10]` wastage, named markup lines, GST, PC/
 redistribution, rounding). Call `recalcEstimate(id)` after any change.
 
 Conventions for contributors (human or AI): `AGENTS.md`. Product spec: `docs/SPEC.md`.
+Feature-by-feature comparison with the reference app: `docs/FIDELITY.md`.
 
 ## Data
 

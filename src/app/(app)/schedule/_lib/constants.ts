@@ -1,7 +1,7 @@
 /** Shared jobs-module constants (safe for client and server). */
 export const JOB_STATUSES = ["Not started", "In progress", "On hold", "Completed", "Cancelled"] as const;
 export const ACTIVE_STATUSES = ["Not started", "In progress", "On hold"] as const;
-export const COST_TYPES = ["Material", "Labour", "Equipment", "Subcontractor", "Other"] as const;
+export const COST_TYPES = ["Material", "Labour", "MatLab", "Equipment", "Subcontractor", "Other"] as const;
 export const SELECTION_STATUSES = ["Pending", "Selected", "Approved"] as const;
 export const TASK_COLOURS = [
   { value: "#0a8077", label: "Teal" },

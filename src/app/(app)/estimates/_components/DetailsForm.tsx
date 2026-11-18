@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { startTransition, useActionState, useEffect, useState } from "react";
 import { Card, Field, Input, Select } from "@/components/ui";
+import { PhoneField } from "@/components/ui/PhoneInput";
 import { cx } from "@/lib/format";
 import { saveDetails } from "../[id]/details-actions";
 import type { ClientOption } from "./ClientPicker";
@@ -55,6 +56,7 @@ export function DetailsForm({
   clients,
   leads,
   taxRates,
+  dialCode = "+61",
 }: {
   initial: DetailsValues;
   statuses: string[];
@@ -63,6 +65,7 @@ export function DetailsForm({
   clients: ClientOption[];
   leads: LeadOption[];
   taxRates: { id: string; label: string }[];
+  dialCode?: string;
 }) {
   const [state, action, pending] = useActionState(saveDetails, undefined);
   const fe = state?.fieldErrors ?? {};
@@ -185,8 +188,8 @@ export function DetailsForm({
               <Input type="email" name="clientEmail" value={c.clientEmail} onChange={setClientField("clientEmail")} className={errCls("clientEmail")} />
               {err("clientEmail")}
             </Field>
-            <Field label="Mobile" className="sm:col-span-2"><Input name="clientMobile" type="tel" value={c.clientMobile} onChange={setClientField("clientMobile")} /></Field>
-            <Field label="Phone" className="sm:col-span-2"><Input name="clientPhone" type="tel" value={c.clientPhone} onChange={setClientField("clientPhone")} /></Field>
+            <PhoneField label="Mobile" className="sm:col-span-2" name="clientMobile" value={c.clientMobile} onValueChange={(v) => setC((p) => ({ ...p, clientMobile: v }))} defaultDial={dialCode} />
+            <PhoneField label="Phone" className="sm:col-span-2" name="clientPhone" value={c.clientPhone} onValueChange={(v) => setC((p) => ({ ...p, clientPhone: v }))} defaultDial={dialCode} />
             <Field label="Source" className="sm:col-span-2">
               <Select name="source" value={c.source} onChange={setClientField("source")} options={withCurrent(sources, c.source)} placeholder="Not set" />
             </Field>

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { cx, money } from "@/lib/format";
 import type { CalcResult, MarkupLine } from "@/lib/calc";
-import { COST_TYPES, costTypeBar, parseNumberInput } from "./cells";
+import { COST_TYPES, costTypeBar, costTypeLabel, parseNumberInput } from "./cells";
 
 const ROUNDING = [
   { value: "none", label: "No rounding" },
@@ -148,7 +148,7 @@ export function SummaryPanel({
           {byType.map(({ t, v }) => (
             <div key={t}>
               <div className="flex justify-between text-sm">
-                <span className="text-ink-700">{t}</span>
+                <span className="text-ink-700">{costTypeLabel(t)}</span>
                 <span className="tabular-nums text-ink-900">
                   {money(v)}
                   <span className="ml-2 inline-block w-10 text-right text-xs text-ink-400">{calc.costTotal ? Math.round((v / calc.costTotal) * 100) : 0}%</span>
