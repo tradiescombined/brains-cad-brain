@@ -102,10 +102,10 @@ await page.getByRole("button", { name: "Confirm delete" }).click();
 await page.waitForURL(/spec-library$/);
 await check((await one("select count(*) as n from specification_templates where name = ?", [tmpTplName])).n == 0, "template deleted");
 
-// Insert from library into the estimate
+// Insert from library (labelled "Presets" on the estimate tab)
 await page.goto(`${base}/estimates/${id}/specifications`);
 await settle();
-await page.getByRole("button", { name: "Insert from library" }).click();
+await page.getByRole("button", { name: "Presets" }).click();
 await page.getByRole("dialog").getByRole("listitem").filter({ hasText: `${tplName} v2` }).getByRole("button", { name: "Insert" }).click();
 await check(seen(page.getByTestId("spec-node").filter({ hasText: "Painting" })), "library sections inserted");
 await page.getByTestId("spec-save").click();

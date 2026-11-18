@@ -103,6 +103,22 @@ export const specifications = sqliteTable("specifications", {
   sortOrder: integer("sort_order").notNull().default(0),
   heading: text("heading").notNull(),
   body: text("body"),
+  /** Top-level section linked to a costing category (estimate_items.id, kind=category); null = custom section. */
+  categoryItemId: text("category_item_id"),
+  ...timestamps,
+});
+
+/**
+ * Per costing item specification detail (extra text + optional image) shown under the item's
+ * linked category section. Kept out of estimate_items so costings/calc payloads stay small.
+ */
+export const specItemDetails = sqliteTable("spec_item_details", {
+  id: id(),
+  estimateId: text("estimate_id").notNull(),
+  estimateItemId: text("estimate_item_id").notNull().unique(),
+  body: text("body"),
+  /** data:image/(png|jpeg|gif|webp);base64,… (size limited by the action). */
+  imageDataUrl: text("image_data_url"),
   ...timestamps,
 });
 

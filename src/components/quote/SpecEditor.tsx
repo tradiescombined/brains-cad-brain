@@ -10,9 +10,11 @@ import { Modal } from "@/components/ui/client";
 import { cx } from "@/lib/format";
 import { Markdown } from "./Markdown";
 import {
-  addNode, canIndent, canMove, canOutdent, countNodes, fromTemplateContent, indentNode, moveNode, numberTree,
+  addNode, canIndent, canMove, canOutdent, countNodes, fromTemplateContent, indentNode, moveNode, moveTopLevelTo, numberTree,
   outdentNode, removeNode, updateNode, type SpecNode,
 } from "./spec-tree";
+import { matchCostingsOrder, searchSpec, syncWithCostings } from "./spec-costings";
+import { ExportMenu, SpecItemsPanel, type SpecCostingContext } from "./SpecCostingParts";
 
 export type EditorActionState = { ok: boolean; message: string; at: number } | null;
 type Action = (prev: EditorActionState, fd: FormData) => Promise<EditorActionState>;
@@ -23,7 +25,7 @@ const newId = () =>
 export interface LibraryTemplate { id: string; name: string; content: string }
 
 export function SpecEditor({
-  initial, saveAction, intro, name, templates, saveAsTemplateAction, emptyHint, header,
+  initial, saveAction, intro, name, templates, saveAsTemplateAction, emptyHint, header, costing, presetsLabel = "Insert from library",
 }: {
   initial: SpecNode[];
   saveAction: Action;
@@ -35,6 +37,10 @@ export function SpecEditor({
   saveAsTemplateAction?: Action;
   emptyHint?: string;
   header?: ReactNode;
+  /** Estimate tab: sections linked to costing categories with their spec-flagged items. */
+  costing?: SpecCostingContext;
+  /** Label of the insert-from-library button (the estimate tab calls them presets). */
+  presetsLabel?: string;
 }) {
   const [tree, setTree] = useState<SpecNode[]>(initial);
   const [introText, setIntroText] = useState(intro ?? "");
@@ -47,6 +53,51 @@ export function SpecEditor({
   const current = snap(tree, introText, nameText);
   const dirty = current !== saved;
   const numbers = useMemo(() => numberTree(tree), [tree]);
+  const [query, setQuery] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [notice, setNotice] = useState<string | null>(null);
+  const [dragArmed, setDragArmed] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+
+  const catName = useMemo(() => new Map((costing?.categories ?? []).map((c) => [c.id, c.name])), [costing]);
+  const itemsByCategory = useMemo(() => {
+    const m = new Map<string, { id: string; description: string; detail: string | null }[]>();
+    for (const it of costing?.items ?? []) {
+      if (!it.inSpec || !it.categoryId) continue;
+      if (!m.has(it.categoryId)) m.set(it.categoryId, []);
+      m.get(it.categoryId)!.push({ id: it.id, description: it.description, detail: it.detail });
+    }
+    return m;
+  }, [costing]);
+  const missing = useMemo(() => {
+    if (!costing) return 0;
+    const linked = new Set(tree.map((n) => n.categoryItemId).filter(Boolean));
+    return costing.categories.filter((c) => itemsByCategory.has(c.id) && !linked.has(c.id)).length;
+  }, [costing, tree, itemsByCategory]);
+  const hit = useMemo(() => searchSpec(tree, itemsByCategory, query), [tree, itemsByCategory, query]);
+  const visibleTree = hit ? tree.filter((n) => hit.sections.has(n.id)) : tree;
+
+  const sync = () => {
+    if (!costing) return;
+    const r = syncWithCostings(tree, costing.categories, new Set(itemsByCategory.keys()), newId);
+    setTree(r.tree);
+    setNotice(r.added ? `Added ${r.added} costing categor${r.added === 1 ? "y" : "ies"}. Save to keep the change.` : "Sections already match your costings.");
+  };
+  const matchOrder = () => {
+    if (!costing) return;
+    const next = matchCostingsOrder(tree, costing.categories.map((c) => c.id));
+    setTree(next);
+    setNotice(next === tree ? "Sections are already in costings order." : "Sections reordered to match costings. Save to keep the change.");
+  };
+  const toggleCollapse = (id: string) =>
+    setCollapsed((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const canDrag = !hit && editing === null;
 
   useEffect(() => {
     if (state?.ok) setSaved(submitted.current);
@@ -83,11 +134,34 @@ export function SpecEditor({
           {state && !state.ok && <span className="text-xs font-medium text-red-700" role="alert">{state.message}</span>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {templates && <InsertFromLibrary templates={templates} onInsert={(nodes) => setTree((t) => [...t, ...nodes])} />}
+          {costing && (
+            <>
+              <input
+                type="search" aria-label="Search specifications" placeholder="Search…" value={query} onChange={(e) => setQuery(e.target.value)}
+                className="w-40 rounded-md border border-ink-200 px-2 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
+              />
+              <Button type="button" variant="secondary" onClick={sync} title="Add a section for each costing category with specification items">Sync with costings</Button>
+              <Button type="button" variant="secondary" onClick={matchOrder} disabled={tree.length < 2}>Match costings order</Button>
+              <ExportMenu estimateId={costing.estimateId} dirty={dirty} />
+            </>
+          )}
+          {templates && <InsertFromLibrary label={presetsLabel} templates={templates} onInsert={(nodes) => setTree((t) => [...t, ...nodes])} />}
           {saveAsTemplateAction && <SaveAsTemplate tree={tree} action={saveAsTemplateAction} />}
           <Button type="submit" disabled={pending || !dirty} data-testid="spec-save">{pending ? "Saving…" : "Save"}</Button>
         </div>
       </div>
+
+      {(notice || missing > 0) && costing && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900" data-testid="spec-notice">
+          <span>
+            {notice ?? `${missing} costing categor${missing === 1 ? "y has" : "ies have"} specification items but no section yet.`}
+          </span>
+          <span className="flex gap-2">
+            {missing > 0 && <Button type="button" variant="secondary" onClick={sync}>Sync with costings</Button>}
+            {notice && <button type="button" className="text-xs text-brand-800 hover:underline" onClick={() => setNotice(null)}>Dismiss</button>}
+          </span>
+        </div>
+      )}
 
       {name !== undefined && (
         <Field label="Template name">
@@ -113,23 +187,74 @@ export function SpecEditor({
         </div>
       ) : (
         <ol className="space-y-2" data-testid="spec-tree">
-          {tree.map((n) => (
-            <li key={n.id} className="rounded-lg border border-ink-200 bg-white">
-              <NodeRow
-                node={n} number={numbers[n.id]} depth={1} tree={tree} setTree={setTree}
-                editing={editing === n.id} setEditing={setEditing} onAddChild={() => add(n.id)}
-              />
-              {n.children.length > 0 && (
-                <ol className="border-t border-ink-100">
-                  {n.children.map((ch) => (
-                    <li key={ch.id} className="border-b border-ink-100 pl-8 last:border-b-0">
-                      <NodeRow node={ch} number={numbers[ch.id]} depth={2} tree={tree} setTree={setTree} editing={editing === ch.id} setEditing={setEditing} />
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </li>
-          ))}
+          {hit && visibleTree.length === 0 && <li className="rounded-lg border border-dashed border-ink-300 bg-white px-4 py-6 text-center text-sm text-ink-500">No sections match “{query}”.</li>}
+          {visibleTree.map((n) => {
+            const isCollapsed = collapsed.has(n.id) && !hit;
+            const children = hit ? n.children.filter((c) => hit.clauses.has(c.id)) : n.children;
+            const linkName = n.categoryItemId ? catName.get(n.categoryItemId) : undefined;
+            return (
+              <li
+                key={n.id}
+                data-testid="spec-section"
+                draggable={canDrag && dragArmed === n.id}
+                onDragStart={(e) => { setDragId(n.id); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", n.id); }}
+                onDragOver={(e) => { if (dragId) { e.preventDefault(); setOverId(n.id); } }}
+                onDragLeave={() => setOverId((o) => (o === n.id ? null : o))}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (dragId && dragId !== n.id) setTree((t) => moveTopLevelTo(t, dragId, t.findIndex((x) => x.id === n.id)));
+                  setDragId(null); setOverId(null); setDragArmed(null);
+                }}
+                onDragEnd={() => { setDragId(null); setOverId(null); setDragArmed(null); }}
+                className={cx("rounded-lg border bg-white", overId === n.id && dragId !== n.id ? "border-brand-500 ring-2 ring-brand-200" : "border-ink-200", dragId === n.id && "opacity-50")}
+              >
+                <div className="flex items-stretch">
+                  <div className="flex shrink-0 flex-col items-center gap-1 pl-1.5 pt-3">
+                    <span
+                      role="button" tabIndex={-1} aria-label="Drag to reorder" title={canDrag ? "Drag to reorder" : "Finish editing / clear search to reorder"}
+                      onMouseDown={() => canDrag && setDragArmed(n.id)} onMouseUp={() => setDragArmed(null)}
+                      className={cx("select-none text-ink-300", canDrag ? "cursor-grab hover:text-ink-600" : "cursor-not-allowed")}
+                    >
+                      ⋮⋮
+                    </span>
+                    <button
+                      type="button" aria-label={isCollapsed ? "Expand section" : "Collapse section"} aria-expanded={!isCollapsed}
+                      onClick={() => toggleCollapse(n.id)} className="rounded px-0.5 text-xs text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                    >
+                      {isCollapsed ? "▸" : "▾"}
+                    </button>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <NodeRow
+                      node={n} number={numbers[n.id]} depth={1} tree={tree} setTree={setTree}
+                      editing={editing === n.id} setEditing={setEditing} onAddChild={() => add(n.id)}
+                      collapsed={isCollapsed} categories={costing?.categories}
+                      badge={n.categoryItemId ? (
+                        <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700" data-testid="spec-linked" title="Linked to a costing category">
+                          {linkName ? `Costings: ${linkName}` : "Costing category removed"}
+                        </span>
+                      ) : null}
+                    />
+                  </div>
+                </div>
+                {!isCollapsed && children.length > 0 && (
+                  <ol className="border-t border-ink-100">
+                    {children.map((ch) => (
+                      <li key={ch.id} className="border-b border-ink-100 pl-8 last:border-b-0">
+                        <NodeRow node={ch} number={numbers[ch.id]} depth={2} tree={tree} setTree={setTree} editing={editing === ch.id} setEditing={setEditing} />
+                      </li>
+                    ))}
+                  </ol>
+                )}
+                {!isCollapsed && costing && n.categoryItemId && catName.has(n.categoryItemId) && (
+                  <SpecItemsPanel
+                    ctx={costing} categoryId={n.categoryItemId} sectionNumber={numbers[n.id]} offset={n.children.length}
+                    visible={hit ? hit.items : null}
+                  />
+                )}
+              </li>
+            );
+          })}
         </ol>
       )}
       {tree.length > 0 && (
@@ -153,10 +278,14 @@ function IconBtn({ label, onClick, disabled, children, danger }: { label: string
 }
 
 function NodeRow({
-  node, number, depth, tree, setTree, editing, setEditing, onAddChild,
+  node, number, depth, tree, setTree, editing, setEditing, onAddChild, collapsed, categories, badge,
 }: {
   node: SpecNode; number: string; depth: 1 | 2; tree: SpecNode[];
   setTree: (f: (t: SpecNode[]) => SpecNode[]) => void; editing: boolean; setEditing: (id: string | null) => void; onAddChild?: () => void;
+  collapsed?: boolean;
+  /** Costing categories a top-level section can link to (estimate tab only). */
+  categories?: { id: string; name: string }[];
+  badge?: ReactNode;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -194,6 +323,21 @@ function NodeRow({
             }}
           />
         </div>
+        {depth === 1 && categories && (
+          <div className="flex items-center gap-2 pl-10 text-sm">
+            <label htmlFor={`link-${node.id}`} className="text-ink-500">Costing category</label>
+            <select
+              id={`link-${node.id}`} value={node.categoryItemId ?? ""}
+              onChange={(e) => set({ categoryItemId: e.target.value || null })}
+              className="rounded-md border border-ink-200 px-2 py-1 text-sm"
+            >
+              <option value="">None (custom section)</option>
+              {categories
+                .filter((c) => c.id === node.categoryItemId || !tree.some((t) => t.categoryItemId === c.id))
+                .map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        )}
         <div className="pl-10">
           <div className="mb-1 flex items-center gap-1">
             <button type="button" onClick={() => wrap("bold")} className="rounded border border-ink-200 px-2 py-0.5 text-xs font-bold hover:bg-ink-50">B</button>
@@ -213,8 +357,11 @@ function NodeRow({
     <div className="group flex items-start gap-2 p-3" data-testid="spec-node">
       <span className={cx("w-8 shrink-0 pt-0.5 text-sm font-semibold tabular-nums", depth === 1 ? "text-ink-700" : "text-ink-400")}>{number}</span>
       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setEditing(node.id)}>
-        <div className={cx("text-ink-900", depth === 1 ? "font-semibold" : "font-medium")}>{node.heading || <span className="italic text-ink-400">Untitled section</span>}</div>
-        {node.body ? (
+        <div className={cx("flex flex-wrap items-center gap-2 text-ink-900", depth === 1 ? "font-semibold" : "font-medium")}>
+          <span>{node.heading || <span className="italic text-ink-400">Untitled section</span>}</span>
+          {badge}
+        </div>
+        {collapsed ? null : node.body ? (
           <Markdown text={node.body} className="mt-1 text-sm text-ink-600" />
         ) : (
           <div className="mt-0.5 text-xs text-ink-400">Click to add detail</div>
@@ -246,11 +393,11 @@ function NodeRow({
   );
 }
 
-function InsertFromLibrary({ templates, onInsert }: { templates: LibraryTemplate[]; onInsert: (n: SpecNode[]) => void }) {
+function InsertFromLibrary({ templates, onInsert, label }: { templates: LibraryTemplate[]; onInsert: (n: SpecNode[]) => void; label: string }) {
   return (
     <Modal
-      title="Insert from library"
-      trigger={(open) => <Button type="button" variant="secondary" onClick={open}>Insert from library</Button>}
+      title={label}
+      trigger={(open) => <Button type="button" variant="secondary" onClick={open}>{label}</Button>}
     >
       {(close) =>
         templates.length === 0 ? (

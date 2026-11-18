@@ -6,7 +6,8 @@ import { Fragment, type ReactNode } from "react";
 import { money, num, cx } from "@/lib/format";
 import { addDaysIso, applyMergeFields, formatIsoDate, type MergeValues } from "@/lib/merge-fields";
 import { Markdown } from "./Markdown";
-import { numberTree } from "./spec-tree";
+import { buildSpecDocument } from "./spec-costings";
+import { SpecDocumentView } from "./SpecDocumentView";
 import { buildQuoteView, type QuoteModel, type QuoteOptionValues } from "./model";
 
 export function quoteMergeValues(model: QuoteModel, opts: Pick<QuoteOptionValues, "validDays">): MergeValues {
@@ -36,10 +37,11 @@ export function QuoteDocument({ model, options: o, className }: { model: QuoteMo
   const merge = quoteMergeValues(model, o);
   const view = buildQuoteView(model, o);
   const validUntil = addDaysIso(model.issueDate, o.validDays);
-  const specNumbers = numberTree(model.specs);
   const schedule = model.schedule ?? [];
   const showSchedule = o.printSchedule && schedule.length > 0;
-  const showSpecs = o.printSpecifications && (model.specs.length > 0 || !!model.specIntro?.trim() || model.inclusions.length > 0);
+  // Older models (e.g. cached client payloads) may lack specItems: treat as none.
+  const specDoc = buildSpecDocument(model.specs, model.specItems ?? []);
+  const showSpecs = o.printSpecifications && (model.specs.length > 0 || !!model.specIntro?.trim() || !!specDoc.inclusions);
   const itemCols = (o.printQuantities ? 1 : 0) + (o.printUnitMeasures ? 1 : 0);
   const cols = itemCols;
   const amountCol = (view.showItems && o.printItemTotals) || (view.showCategories && o.printCategoryTotals);
@@ -212,46 +214,7 @@ export function QuoteDocument({ model, options: o, className }: { model: QuoteMo
         <section className="mt-8" data-testid="quote-specifications">
           <SectionTitle colour={c}>Specifications</SectionTitle>
           {model.specIntro?.trim() && <Markdown text={model.specIntro} className="mb-3" />}
-          <div className="space-y-3">
-            {model.specs.map((s) => (
-              <div key={s.id}>
-                <h3 className="break-after-avoid font-semibold text-ink-900">
-                  {o.printSpecificationNumbers && <span className="mr-2 tabular-nums">{specNumbers[s.id]}</span>}
-                  {s.heading}
-                </h3>
-                {s.body && <Markdown text={s.body} className="mt-1" />}
-                {s.children.length > 0 && (
-                  <div className="mt-2 space-y-2 pl-5">
-                    {s.children.map((ch) => (
-                      <div key={ch.id} className="break-inside-avoid">
-                        <h4 className="font-medium text-ink-900">
-                          {o.printSpecificationNumbers && <span className="mr-2 tabular-nums text-ink-500">{specNumbers[ch.id]}</span>}
-                          {ch.heading}
-                        </h4>
-                        {ch.body && <Markdown text={ch.body} className="mt-0.5" />}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-            {model.inclusions.length > 0 && (
-              <div className="break-inside-avoid">
-                <h3 className="font-semibold text-ink-900">
-                  {o.printSpecificationNumbers && <span className="mr-2 tabular-nums">{model.specs.length + 1}</span>}
-                  Inclusions
-                </h3>
-                <ul className="mt-1 list-disc space-y-0.5 pl-5">
-                  {model.inclusions.map((i) => (
-                    <li key={i.id}>
-                      {i.description}
-                      {i.notes && <span className="text-ink-500"> — {i.notes}</span>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+          <SpecDocumentView doc={specDoc} numbers={o.printSpecificationNumbers} />
         </section>
       )}
 

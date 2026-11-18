@@ -32,7 +32,7 @@ function item(id: string, parentId: string | null, extra: Partial<ItemRow> = {})
   };
 }
 function spec(id: string, parentId: string | null): SpecRow {
-  return { id, estimateId: "src", parentId, sortOrder: 0, heading: `H ${id}`, body: null, ...ts };
+  return { id, estimateId: "src", parentId, sortOrder: 0, heading: `H ${id}`, body: null, categoryItemId: null, ...ts };
 }
 function plan(id: string): PlanRow {
   return { id, estimateId: "src", label: id, description: null, sortOrder: 0, imageDataUrl: "data:x", imageWidth: 10, imageHeight: 10, scaleX: 1, scaleY: 1, scaleUnit: "mm", sourceDpi: null, ...ts };
@@ -147,7 +147,27 @@ describe("copyEstimateGraph", () => {
 
   it("works for an empty estimate", () => {
     const out = copyEstimateGraph({ items: [], specifications: [], plans: [], measurements: [], quoteOptions: null, tasks: [] }, "dst");
-    expect(out).toEqual({ items: [], specifications: [], plans: [], measurements: [], quoteOptions: null, tasks: [] });
+    expect(out).toEqual({ items: [], specifications: [], plans: [], measurements: [], quoteOptions: null, tasks: [], specItemDetails: [] });
+  });
+
+  it("re-links category sections and per-item spec details to the copied items", () => {
+    const out = copyEstimateGraph(
+      {
+        ...graph,
+        specifications: [{ ...spec("h1", null), categoryItemId: "c1" }, { ...spec("h3", null), categoryItemId: "gone" }],
+        specItemDetails: [
+          { id: "d1", estimateId: "src", estimateItemId: "i1", body: "Detail", imageDataUrl: null, ...ts },
+          { id: "d2", estimateId: "src", estimateItemId: "deleted", body: "Orphan", imageDataUrl: null, ...ts },
+        ],
+      },
+      "dst",
+      seqGen(),
+    );
+    const byDesc = Object.fromEntries(out.items.map((i) => [i.description, i]));
+    expect(out.specifications.map((s) => s.categoryItemId)).toEqual([byDesc.c1.id, null]);
+    expect(out.specItemDetails).toHaveLength(1);
+    expect(out.specItemDetails[0]).toMatchObject({ estimateId: "dst", estimateItemId: byDesc.i1.id, body: "Detail" });
+    expect(out.specItemDetails[0].id).not.toBe("d1");
   });
 });
 

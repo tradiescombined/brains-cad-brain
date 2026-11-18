@@ -39,7 +39,8 @@ async function loadGraph(estimateId: string): Promise<EstimateGraph> {
   const measurements = await db.select().from(schema.measurements).where(eq(schema.measurements.estimateId, estimateId));
   const [qo] = await db.select().from(schema.quoteOptions).where(eq(schema.quoteOptions.estimateId, estimateId));
   const tasks = await loadTaskRows(estimateId);
-  return { items, specifications, plans, measurements, quoteOptions: qo ?? null, tasks };
+  const specItemDetails = await db.select().from(schema.specItemDetails).where(eq(schema.specItemDetails.estimateId, estimateId));
+  return { items, specifications, plans, measurements, quoteOptions: qo ?? null, tasks, specItemDetails };
 }
 
 function loadTaskRows(estimateId: string) {
@@ -54,6 +55,7 @@ export async function copyEstimateContent(sourceId: string, targetId: string) {
     for (const c of chunk(g.measurements)) await tx.insert(schema.measurements).values(c);
     for (const c of chunk(g.items)) await tx.insert(schema.estimateItems).values(c);
     for (const c of chunk(g.specifications)) await tx.insert(schema.specifications).values(c);
+    for (const c of chunk(g.specItemDetails, 5)) await tx.insert(schema.specItemDetails).values(c);
     if (g.quoteOptions) await tx.insert(schema.quoteOptions).values(g.quoteOptions);
     for (const c of chunk(g.tasks)) await tx.insert(schema.estimateTasks).values(c);
   });
@@ -95,6 +97,7 @@ export async function deleteEstimateCascade(id: string) {
   await db.transaction(async (tx) => {
     await tx.delete(schema.estimateItems).where(eq(schema.estimateItems.estimateId, id));
     await tx.delete(schema.specifications).where(eq(schema.specifications.estimateId, id));
+    await tx.delete(schema.specItemDetails).where(eq(schema.specItemDetails.estimateId, id));
     await tx.delete(schema.quoteOptions).where(eq(schema.quoteOptions.estimateId, id));
     await tx.delete(schema.estimateTasks).where(eq(schema.estimateTasks.estimateId, id));
     await tx.delete(schema.measurements).where(eq(schema.measurements.estimateId, id));
