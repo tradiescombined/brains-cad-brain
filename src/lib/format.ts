@@ -20,8 +20,10 @@ export function date(iso: string | null | undefined): string {
   return d.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** Today's date (YYYY-MM-DD) in the local time zone, not UTC. */
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export function addDays(iso: string, days: number): string {
