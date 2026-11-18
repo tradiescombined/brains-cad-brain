@@ -1,38 +1,18 @@
 // E2E: Specifications tab, spec library, quote builder, print view and public client quote.
 // Run: BASE_URL=http://localhost:3107 node e2e/quote.e2e.mjs   (needs seeded DB: npm run db:reset)
-import { createClient } from "@libsql/client";
-import { start, check, done } from "./helpers.mjs";
+import { start, check, done, db, one, RUN, cloneEstimate, purgeEstimate } from "./helpers.mjs";
 
-const dbc = createClient({ url: process.env.DATABASE_URL ?? "file:./data/bcb.db" });
-const one = async (sql, args = []) => (await dbc.execute({ sql, args })).rows[0];
-
-const est = await one("select id, number from estimates where is_sample = 1 order by created_at limit 1");
-if (!est) throw new Error("No sample estimate - run npm run db:reset");
-const id = est.id;
-// Reset module state for a repeatable run
-await dbc.execute({ sql: "delete from specifications where estimate_id = ?", args: [id] });
-await dbc.execute({ sql: "delete from quote_options where estimate_id = ?", args: [id] });
-await dbc.execute({ sql: "delete from specification_templates where name like 'E2E %'", args: [] });
-await dbc.execute({ sql: "update estimates set status = 'Draft', sent_at = null, accepted_at = null, specification_intro = null where id = ?", args: [id] });
+const dbc = db();
+// Work on a private copy of the seeded sample estimate (status, specs, quote options and acceptance
+// all change here), so the seed record is never mutated and the suite is order-independent.
+const sample = await one("select id from estimates where is_sample = 1 order by created_at limit 1");
+if (!sample) throw new Error("No sample estimate - run npm run db:reset");
+const id = await cloneEstimate(sample.id, { name: `E2E quote ${RUN}`, number: `QE2E-Q${RUN}` });
 await dbc.execute({ sql: "update estimate_items set show_in_specification = 1 where estimate_id = ? and description = 'Skip bin 6m3'", args: [id] });
+const tplName = `E2E Bathroom spec ${RUN}`;
+const tmpTplName = `E2E Temp ${RUN}`;
 
-// Own page + console listener: in an isolated module worktree, Next <Link> prefetches of routes owned by
-// OTHER modules (sidebar, estimate tabs) 404 until integration. Those, and only those, are ignored;
-// any other console error / page error fails the run.
-const { browser, base } = await start();
-const page = await (await browser.newContext({ viewport: { width: 1400, height: 900 } })).newPage();
-page.setDefaultTimeout(15000);
-page.on("dialog", (d) => d.dismiss());
-const OWNED = /\/(specifications|quote)(\/|$)|^\/q\/|^\/settings\/spec-library/;
-const consoleErrors = [];
-page.on("console", (m) => {
-  if (m.type() !== "error") return;
-  const u = m.location().url || "";
-  if (/[?&]_rsc=/.test(u) && /404/.test(m.text()) && !OWNED.test(new URL(u).pathname)) return;
-  if (/favicon|Download the React DevTools/.test(m.text())) return;
-  consoleErrors.push(`${m.text()} @ ${u}`);
-});
-page.on("pageerror", (e) => consoleErrors.push(String(e)));
+const { page, base } = await start();
 const seen = (loc) => loc.waitFor({ timeout: 8000 }).then(() => true);
 const settle = async () => { await page.waitForLoadState("load"); await page.waitForTimeout(400); };
 await page.addInitScript(() => { window.print = () => { window.__printed = true; }; });
@@ -88,45 +68,45 @@ await check(rows.length === 2 && rows.every((r) => r.parent_id === null) && rows
 
 // Save as library template
 await page.getByRole("button", { name: "Save as library template" }).click();
-await page.getByLabel("Template name").fill("E2E Bathroom spec");
+await page.getByLabel("Template name").fill(tplName);
 await page.getByRole("button", { name: "Save template" }).click();
-await page.getByText("Saved “E2E Bathroom spec” to your library.").waitFor();
-const tpl = await one("select id, content from specification_templates where name = 'E2E Bathroom spec'");
+await page.getByText(`Saved “${tplName}” to your library.`).waitFor();
+const tpl = await one("select id, content from specification_templates where name = ?", [tplName]);
 await check(tpl && JSON.parse(tpl.content).length === 2, "template saved with 2 sections");
 await page.keyboard.press("Escape");
 
 console.log("Spec library");
 await page.goto(`${base}/settings/spec-library`);
 await settle();
-await check(seen(page.getByRole("link", { name: "E2E Bathroom spec" })), "template listed");
-await page.getByRole("link", { name: "E2E Bathroom spec" }).click();
+await check(seen(page.getByRole("link", { name: tplName })), "template listed");
+await page.getByRole("link", { name: tplName }).click();
 await page.waitForURL(/spec-library\/[\w-]+$/);
 await settle();
-await page.getByLabel("Template name").fill("E2E Bathroom spec v2");
+await page.getByLabel("Template name").fill(`${tplName} v2`);
 await page.getByRole("button", { name: "+ Add section" }).click();
 await page.getByLabel("Section heading").fill("Painting");
 await page.getByRole("button", { name: "Done" }).click();
 await page.getByTestId("spec-save").click();
 await page.getByTestId("spec-saved").waitFor();
 const tpl2 = await one("select name, content from specification_templates where id = ?", [tpl.id]);
-await check(tpl2.name === "E2E Bathroom spec v2" && JSON.parse(tpl2.content).length === 3, "template edit persisted");
+await check(tpl2.name === `${tplName} v2` && JSON.parse(tpl2.content).length === 3, "template edit persisted");
 // create new empty template then delete it
 await page.goto(`${base}/settings/spec-library`);
 await settle();
-await page.getByLabel("New template name").fill("E2E Temp");
+await page.getByLabel("New template name").fill(tmpTplName);
 await page.getByRole("button", { name: "New template" }).click();
 await page.waitForURL(/spec-library\/[\w-]+$/);
 await settle();
 await page.getByRole("button", { name: "Delete template" }).click();
 await page.getByRole("button", { name: "Confirm delete" }).click();
 await page.waitForURL(/spec-library$/);
-await check((await one("select count(*) as n from specification_templates where name = 'E2E Temp'")).n == 0, "template deleted");
+await check((await one("select count(*) as n from specification_templates where name = ?", [tmpTplName])).n == 0, "template deleted");
 
 // Insert from library into the estimate
 await page.goto(`${base}/estimates/${id}/specifications`);
 await settle();
 await page.getByRole("button", { name: "Insert from library" }).click();
-await page.getByRole("dialog").getByRole("listitem").filter({ hasText: "E2E Bathroom spec v2" }).getByRole("button", { name: "Insert" }).click();
+await page.getByRole("dialog").getByRole("listitem").filter({ hasText: `${tplName} v2` }).getByRole("button", { name: "Insert" }).click();
 await check(seen(page.getByTestId("spec-node").filter({ hasText: "Painting" })), "library sections inserted");
 await page.getByTestId("spec-save").click();
 await page.getByTestId("spec-saved").waitFor();
@@ -241,5 +221,6 @@ await page.getByRole("button", { name: "Create client link" }).waitFor();
 const res = await page.request.get(`${base}/q/${token}`);
 await check(res.status() === 404, "revoked link -> 404");
 
-await check(consoleErrors.length === 0, `zero browser console errors${consoleErrors.length ? ": " + consoleErrors.slice(0, 5).join(" | ") : ""}`);
+await purgeEstimate(id);
+await dbc.execute({ sql: "delete from specification_templates where id = ?", args: [tpl?.id ?? ""] });
 await done();

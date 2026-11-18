@@ -1,26 +1,28 @@
 // E2E for module 5 (Estimate Costings). Run: BASE_URL=http://localhost:3105 node e2e/costings.e2e.mjs
-// Uses the seeded "[SAMPLE] Bathroom renovation" estimate; adds a test recipe + measurement directly in the DB.
-import { createClient } from "@libsql/client";
-import { start, check, done } from "./helpers.mjs";
+// Works on its own copy of the seeded "[SAMPLE] Bathroom renovation" estimate (the seed is never touched)
+// and its own catalogue holding a test recipe; adds a measurement directly in the DB. All removed at the end.
+import { start, check, done, db as getDb, one, all, RUN, cloneEstimate, purgeEstimate } from "./helpers.mjs";
 
-const db = createClient({ url: process.env.DATABASE_URL ?? "file:./data/bcb.db" });
-const one = async (sql, args = []) => (await db.execute({ sql, args })).rows[0];
-const all = async (sql, args = []) => (await db.execute({ sql, args })).rows;
+const db = getDb();
 const uid = () => crypto.randomUUID();
 const money = (n) => n.toLocaleString("en-AU", { style: "currency", currency: "AUD" });
 
-const est = await one("select id, quote_total from estimates where name = '[SAMPLE] Bathroom renovation'");
-if (!est) throw new Error("Sample estimate missing — run npm run db:reset");
-const E = est.id;
+const sample = await one("select id from estimates where name = '[SAMPLE] Bathroom renovation' and is_sample = 1");
+if (!sample) throw new Error("Sample estimate missing — run npm run db:reset");
+const tag = RUN;
+const E = await cloneEstimate(sample.id, { name: `E2E costings ${tag}`, number: `QE2E-C${tag}` });
+const est = await one("select id, quote_total from estimates where id = ?", [E]);
 
-// --- test fixtures (idempotent-ish: unique names per run)
-const tag = Date.now().toString(36).slice(-5);
-await db.execute({ sql: "delete from measurements where estimate_id = ? and code = 'M1'", args: [E] });
+// --- test fixtures (unique names per run)
 await db.execute({
   sql: "insert into measurements (id, estimate_id, plan_id, code, description, shape, points, colour, unit, pitch_degrees, depth_mm, height_mm, is_negative, value, created_at, updated_at) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
   args: [uid(), E, "e2e-plan", "M1", "E2E wall length", "line", "[]", "#2563eb", "m", 0, 0, 0, 0, 12.5, new Date().toISOString(), new Date().toISOString()],
 });
-const catalogue = await one("select id from catalogues limit 1");
+const catalogue = { id: uid() };
+await db.execute({
+  sql: "insert into catalogues (id, name, short_code, status, created_at, updated_at) values (?, ?, 'E2E', 'Published', ?, ?)",
+  args: [catalogue.id, `E2E costings catalogue ${tag}`, new Date().toISOString(), new Date().toISOString()],
+});
 const recipeId = uid();
 const recipeName = `E2E wall recipe ${tag}`;
 await db.execute({
@@ -39,9 +41,6 @@ await db.execute({
 });
 
 const { page, base } = await start();
-// Other modules' routes (sidebar/tab links) do not exist on this isolated branch; their RSC prefetches
-// would 404 and log console errors. Abort only those prefetch GETs; this module's own requests pass through.
-await page.route((u) => u.searchParams.has("_rsc") && !/\/costings$|\/dashboard$/.test(u.pathname), (r) => r.abort("aborted"));
 const url = `${base}/estimates/${E}/costings`;
 const saved = () => page.getByTestId("save-state").filter({ hasText: "All changes saved" }).waitFor();
 const settle = async () => { await page.waitForTimeout(150); await saved(); await page.waitForTimeout(150); };
@@ -247,7 +246,7 @@ await check((await page.getByTestId("sum-cost").textContent()).trim() === money(
 await check((await page.getByTestId("sum-tax").textContent()).trim() === money(Number(est2.tax_total)), "summary tax equals stored");
 await check((await row("E2E noggings")).getByLabel("Markup percent").inputValue().then((v) => v === "30%"), "persisted values reload into grid");
 
-console.log("Cleanup: delete test category (restores sample)");
+console.log("Delete test category");
 m = await openMenu("E2E Carpentry");
 await m.getByRole("menuitem", { name: /^Delete/ }).click();
 await m.getByRole("menuitem", { name: /Confirm delete/ }).click();
@@ -266,8 +265,9 @@ await settle();
 await check(!!(await one("select id from estimate_items where estimate_id=? and kind='category' and description='First room'", [emptyId])), "empty state creates first category");
 
 // fixtures cleanup
-await db.execute({ sql: "delete from estimate_items where estimate_id = ?", args: [emptyId] });
-await db.execute({ sql: "delete from estimates where id = ?", args: [emptyId] });
+await purgeEstimate(emptyId);
+await purgeEstimate(E);
 await db.execute({ sql: "delete from catalogue_recipe_lines where recipe_item_id = ?", args: [recipeId] });
-await db.execute({ sql: "delete from catalogue_items where id = ?", args: [recipeId] });
+await db.execute({ sql: "delete from catalogue_items where catalogue_id = ?", args: [catalogue.id] });
+await db.execute({ sql: "delete from catalogues where id = ?", args: [catalogue.id] });
 await done();

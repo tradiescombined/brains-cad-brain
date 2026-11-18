@@ -1,17 +1,8 @@
 // E2E: Catalogues module. Run: BASE_URL=http://localhost:3108 node e2e/catalogues.e2e.mjs
-import { start, check, done } from "./helpers.mjs";
+import { start, check, done, RUN } from "./helpers.mjs";
 
 const { page, base } = await start();
-// Sidebar <Link>s prefetch other modules' routes, which only exist once all modules are merged.
-// In an isolated worktree those prefetches 404, so point them at /dashboard (they are never navigated to).
-const OTHER = /^\/(leads|estimates|schedule|jobs|orders|invoices|clients|contacts|reminders|settings)(\/|$)/;
-await page.route((u) => OTHER.test(u.pathname) && u.searchParams.has("_rsc"), async (route) => {
-  const res = await route.fetch();
-  if (res.status() !== 404) return route.fulfill({ response: res });
-  const u = new URL(route.request().url());
-  return route.continue({ url: `${u.origin}/dashboard${u.search}` });
-});
-const tag = Date.now().toString(36).slice(-5).toUpperCase();
+const tag = RUN.toUpperCase();
 const NAME = `E2E Timber ${tag}`;
 const posted = () => page.waitForResponse((r) => r.request().method() === "POST" && r.status() < 400);
 const row = (desc) => page.locator('[data-testid="item-row"]').filter({ has: page.locator(`input[aria-label="Description"][value="${desc}"]`) });

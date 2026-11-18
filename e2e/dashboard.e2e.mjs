@@ -1,9 +1,24 @@
 // E2E for module 1: Dashboard, Reminders & Settings.
 // Run: BASE_URL=http://localhost:3101 node e2e/dashboard.e2e.mjs
-import { start, check, done } from "./helpers.mjs";
+// Settings are a shared singleton: every settings change below is undone through the UI, and the
+// business_settings row, tax-rate defaults and the accepted-status flag are snapshotted up front and
+// written back at the end, so the suite leaves global state exactly as it found it.
+import { start, check, done, db, all, RUN } from "./helpers.mjs";
+
+const settingsBefore = await all("select * from business_settings");
+const taxDefaultsBefore = await all("select id, is_default from tax_rates");
+const flagsBefore = await all("select id, flag from lookups where kind = 'estimate_status'");
+async function restoreGlobalState() {
+  for (const row of settingsBefore) {
+    const cols = Object.keys(row).filter((c) => c !== "id");
+    await db().execute({ sql: `update business_settings set ${cols.map((c) => `${c} = ?`).join(", ")} where id = ?`, args: [...cols.map((c) => row[c]), row.id] });
+  }
+  for (const t of taxDefaultsBefore) await db().execute({ sql: "update tax_rates set is_default = ? where id = ?", args: [t.is_default, t.id] });
+  for (const l of flagsBefore) await db().execute({ sql: "update lookups set flag = ? where id = ?", args: [l.flag, l.id] });
+}
 
 const { page, base } = await start();
-const U = Date.now().toString(36).slice(-5);
+const U = RUN.slice(-6);
 const vis = (loc, timeout = 8000) => loc.first().waitFor({ state: "visible", timeout }).then(() => true, () => false);
 const gone = (loc, timeout = 8000) => loc.first().waitFor({ state: "detached", timeout }).then(() => true, () => false);
 const go = async (path) => {
@@ -21,16 +36,6 @@ const poll = async (fn, ms = 8000) => {
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const today = iso(new Date());
 const yesterday = iso(new Date(Date.now() - 86400000));
-
-// In an isolated module worktree, sibling modules' routes (/leads, /jobs…) don't exist yet, so the
-// sidebar's link prefetches 404. Neutralise only those prefetch 404s; all other traffic is untouched.
-await page.route("**/*", async (route) => {
-  if (!route.request().headers()["next-router-prefetch"]) return route.continue();
-  const res = await route.fetch().catch(() => null);
-  if (!res) return route.abort();
-  if (res.status() === 404) return route.fulfill({ status: 204, body: "" });
-  return route.fulfill({ response: res });
-});
 
 /* ───────────── Dashboard ───────────── */
 console.log("Dashboard");
@@ -214,17 +219,22 @@ await go("/settings/numbering");
 const nform = page.getByRole("form", { name: "Numbering" });
 const origJobPrefix = await nform.getByLabel("Jobs prefix").inputValue();
 const origJobNext = await nform.getByLabel("Jobs next number").inputValue();
+const origEstNext = await nform.getByLabel("Estimates / quotes next number").inputValue();
+// Relative to the current counter, so earlier runs/suites that consumed numbers can't cause a clash.
+const estTarget = String(Number(origEstNext) + 4000);
+const jobTarget = String(Number(origJobNext) + 1000);
 await nform.getByLabel("Estimates / quotes next number").fill("1");
 await nform.getByRole("button", { name: "Save numbering" }).click();
 await check(vis(nform.getByText(/would clash with existing numbers/)), "validation: clashing estimate number");
-await nform.getByLabel("Estimates / quotes next number").fill("5000");
+await nform.getByLabel("Estimates / quotes next number").fill(estTarget);
 await nform.getByLabel("Jobs prefix").fill("JOB-");
-await nform.getByLabel("Jobs next number").fill("2000");
+await nform.getByLabel("Jobs next number").fill(jobTarget);
 await nform.getByRole("button", { name: "Save numbering" }).click();
 await check(vis(nform.getByText("Numbering saved")), "numbering saved");
 await go("/settings/numbering");
-await check(page.getByTestId("next-job").innerText().then((t) => t.trim() === "JOB-2000"), "job numbering persisted (JOB-2000)");
-await check(page.getByTestId("next-estimate").innerText().then((t) => t.trim() === "Q5000" || t.trim().endsWith("5000")), "estimate counter persisted");
+await check(page.getByTestId("next-job").innerText().then((t) => t.trim() === `JOB-${jobTarget}`), `job numbering persisted (JOB-${jobTarget})`);
+await check(page.getByTestId("next-estimate").innerText().then((t) => t.trim().endsWith(estTarget)), "estimate counter persisted");
+await nform.getByLabel("Estimates / quotes next number").fill(origEstNext);
 await nform.getByLabel("Jobs prefix").fill(origJobPrefix);
 await nform.getByLabel("Jobs next number").fill(origJobNext);
 await nform.getByRole("button", { name: "Save numbering" }).click();
@@ -234,6 +244,8 @@ await check(vis(nform.getByText("Numbering saved")), "numbering restored");
 console.log("Settings · Quote defaults");
 await go("/settings/quote-defaults");
 const qform = page.getByRole("form", { name: "Quote defaults" });
+const origQ = {};
+for (const n of ['input[name="quoteValidDays"]', 'input[name="defaultMarkupPercent"]', 'input[name="defaultInvoiceDueDays"]', 'textarea[name="bankDetails"]']) origQ[n] = await qform.locator(n).inputValue();
 await qform.locator('input[name="quoteValidDays"]').fill("0");
 await qform.getByRole("button", { name: "Save quote defaults" }).click();
 await check(vis(qform.getByText(/Quote valid for: whole number 1/)), "validation: valid days");
@@ -247,9 +259,7 @@ await go("/settings/quote-defaults");
 await check(qform.locator('input[name="quoteValidDays"]').inputValue().then((v) => v === "45"), "valid days persisted");
 await check(qform.locator('input[name="defaultMarkupPercent"]').inputValue().then((v) => v === "22.5"), "markup persisted");
 await check(qform.locator('textarea[name="bankDetails"]').inputValue().then((v) => v.includes(U)), "bank details persisted");
-await qform.locator('input[name="quoteValidDays"]').fill("30");
-await qform.locator('input[name="defaultMarkupPercent"]').fill("20");
-await qform.locator('input[name="defaultInvoiceDueDays"]').fill("14");
+for (const [n, v] of Object.entries(origQ)) await qform.locator(n).fill(v);
 await qform.getByRole("button", { name: "Save quote defaults" }).click();
 await check(vis(qform.getByText("Quote defaults saved")), "quote defaults restored");
 
@@ -323,4 +333,5 @@ for (const p of ["/dashboard", "/reminders", "/settings/users", "/settings/lists
   await check(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `no horizontal page scroll at 390px: ${p}`);
 }
 
+await restoreGlobalState();
 await done();

@@ -1,15 +1,14 @@
 // Plans & takeoffs end-to-end: upload PNG + PDF, scale, draw every tool, edit, totals,
 // costing link, delete, plan rename/reorder/delete. Verifies persistence in the DB.
 // Run: BASE_URL=http://localhost:3106 node e2e/takeoffs.e2e.mjs
-import { createClient } from "@libsql/client";
-import { start, check, done } from "./helpers.mjs";
+import { start, check, done, db as getDb, RUN, purgeEstimate } from "./helpers.mjs";
 
-const db = createClient({ url: process.env.DATABASE_URL ?? "file:./data/bcb.db" });
+const db = getDb();
 const estimateId = crypto.randomUUID();
 const now = new Date().toISOString();
 await db.execute({
   sql: "insert into estimates (id, number, name, created_at, updated_at) values (?, ?, ?, ?, ?)",
-  args: [estimateId, "E2E-TO", "Takeoff e2e house", now, now],
+  args: [estimateId, `QE2E-T${RUN}`, `Takeoff e2e house ${RUN}`, now, now],
 });
 const q = async (sql, ...args) => (await db.execute({ sql, args })).rows;
 
@@ -40,18 +39,6 @@ function makePdf() {
 
 const { page, base } = await start();
 const url = `${base}/estimates/${estimateId}/takeoffs`;
-// The shared sidebar/tab bar prefetch routes owned by other modules, which do not exist on this
-// module branch and 404. Drop only those prefetch-404 console messages; everything else still fails.
-const OWN = /\/estimates\/[^/]+\/takeoffs(\/|\?|$)/;
-const foreign404 = [];
-const pageErrors = [];
-page.removeAllListeners("console");
-page.on("console", (m) => {
-  if (m.type() !== "error") return;
-  const src = m.location()?.url ?? "";
-  if (/Failed to load resource.*404/.test(m.text()) && /[?&]_rsc=/.test(src) && !OWN.test(src)) return foreign404.push(src);
-  pageErrors.push(m.text());
-});
 
 /** Screen position of an image-pixel coordinate on the plan canvas. */
 async function at(x, y) {
@@ -375,13 +362,6 @@ try {
   await check(Promise.reject(e), "unexpected error");
 } finally {
   // Clean up the test estimate.
-  await q("delete from estimate_items where estimate_id = ?", estimateId);
-  await q("delete from measurements where estimate_id = ?", estimateId);
-  await q("delete from plans where estimate_id = ?", estimateId);
-  await q("delete from takeoff_counters where estimate_id = ?", estimateId);
-  await q("delete from activity where entity_id = ?", estimateId);
-  await q("delete from estimates where id = ?", estimateId);
-  await check(pageErrors.length === 0, `no console errors from this module${pageErrors.length ? ": " + pageErrors.slice(0, 5).join(" | ") : ""}`);
-  if (foreign404.length) console.log(`  (ignored ${foreign404.length} prefetch 404s for routes owned by other modules)`);
+  await purgeEstimate(estimateId);
   await done();
 }

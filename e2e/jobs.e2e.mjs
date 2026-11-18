@@ -1,19 +1,18 @@
 // Module 9 — Jobs, Schedule, Cost tracking, Timesheets, Selections.
 // Run: BASE_URL=http://localhost:3109 node e2e/jobs.e2e.mjs   (needs the seeded sample estimate Q1000)
-import { start, check, done } from "./helpers.mjs";
+// Creates the job from a private copy of the sample estimate (creating a job links the estimate),
+// so the seed estimate is never mutated. Both jobs and the copy are purged at the end.
+import { start, check, done, one, RUN, cloneEstimate, purgeEstimate, purgeJob } from "./helpers.mjs";
+
+const sample = await one("select id from estimates where number = 'Q1000' and is_sample = 1");
+if (!sample) throw new Error("Sample estimate Q1000 missing - run npm run db:reset");
+const estName = `E2E job estimate ${RUN}`;
+const estNumber = `QE2E-J${RUN}`;
+const cloneId = await cloneEstimate(sample.id, { name: estName, number: estNumber });
+const blankName = `E2E blank shed job ${RUN}`;
+let jobId, blankId;
 
 const { page, base } = await start();
-// Other modules' routes are built in parallel worktrees; when they are missing here, the sidebar's
-// link prefetches 404 and log console errors unrelated to this module. Answer those with 204.
-const OTHER_MODULES = /^\/((dashboard|leads|estimates|catalogues|orders|invoices|clients|contacts|reminders|settings)(\/|$)|jobs\/[^/]+\/(orders|variations|invoices)$)/;
-await page.route(
-  (u) => OTHER_MODULES.test(u.pathname),
-  async (route) => {
-    const res = await route.fetch();
-    if (res.status() === 404) await route.fulfill({ status: 204, body: "" });
-    else await route.fulfill({ response: res });
-  },
-);
 const dialog = () => page.getByRole("dialog");
 const settle = () => page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
 const rowText = (sel) => page.locator(sel).first().innerText();
@@ -29,34 +28,22 @@ async function confirmDelete(rowSel) {
   await settle();
 }
 
-if (process.env.DEBUG_404) page.on("response", (r) => r.status() >= 400 && console.log("   [http]", r.status(), r.url()));
 try {
   console.log("Jobs list & create from estimate");
   await page.goto(base + "/jobs");
   await check(page.getByRole("heading", { name: "Jobs" }).isVisible(), "jobs list renders");
 
-  // Clean up leftovers from an interrupted earlier run so the sample estimate is free again.
-  for (let i = 0; i < 5; i++) {
-    await page.goto(base + "/jobs?status=all&q=" + encodeURIComponent("[SAMPLE] Bathroom renovation"));
-    const link = page.getByRole("link", { name: "[SAMPLE] Bathroom renovation" }).first();
-    if (!(await link.count())) break;
-    await link.click();
-    await page.getByRole("button", { name: "Archive job" }).click();
-    await page.getByRole("button", { name: "Yes, archive job" }).click();
-    await page.waitForURL(/\/jobs$/);
-  }
-
   await page.goto(base + "/jobs/new");
-  const est = await page.locator('select[name="estimateId"] option', { hasText: "Q1000" }).first().getAttribute("value");
-  await check(!!est, "sample estimate Q1000 offered");
+  const est = await page.locator('select[name="estimateId"] option', { hasText: estNumber }).first().getAttribute("value");
+  await check(est === cloneId, "own copy of the sample estimate offered");
   await page.selectOption('select[name="estimateId"]', est);
   await page.fill('input[name="startDate"]', "2026-11-16"); // Monday
   await page.getByRole("button", { name: "Create job" }).click();
   await page.waitForURL(/\/jobs\/[0-9a-f-]{36}$/);
   await settle();
   const jobUrl = page.url();
-  const jobId = jobUrl.split("/").pop();
-  await check(page.getByRole("heading", { name: "[SAMPLE] Bathroom renovation" }).isVisible(), "job created with estimate name");
+  jobId = jobUrl.split("/").pop();
+  await check(page.getByRole("heading", { name: estName }).isVisible(), "job created with estimate name");
   const cards = await rowText('[data-testid="finance-cards"]');
   await check(cards.includes("$11,995.50"), "contract value = quote total");
   const budgetTxt = await page.locator("table").first().innerText();
@@ -180,23 +167,24 @@ try {
 
   console.log("Company schedule & list");
   await page.goto(base + "/schedule");
-  await check(page.getByRole("link", { name: /\[SAMPLE\] Bathroom renovation/ }).isVisible(), "job grouped on company schedule");
+  await check(page.getByRole("link", { name: estName }).first().isVisible(), "job grouped on company schedule");
   await page.selectOption('select[name="job"]', jobId);
   await page.getByRole("button", { name: "Apply" }).click();
   await settle();
   await check((await page.locator('[data-testid="gantt-row"]').count()) === 3, "filter by job");
   await page.goto(base + "/schedule?zoom=month");
   await check(page.locator('[data-testid="gantt-bar"]').first().isVisible(), "month zoom renders");
-  await page.goto(base + "/jobs?q=bathroom&status=all");
-  await check(page.getByRole("link", { name: "[SAMPLE] Bathroom renovation" }).first().isVisible(), "search finds job");
+  await page.goto(base + `/jobs?q=${RUN}&status=all`);
+  await check(page.getByRole("link", { name: estName }).first().isVisible(), "search finds job");
 
   console.log("Blank job + archive");
   await page.goto(base + "/jobs/new?mode=blank");
-  await page.fill('input[name="name"]', "E2E blank shed job");
+  await page.fill('input[name="name"]', blankName);
   await page.fill('input[name="contractValue"]', "5,500");
   await page.getByRole("button", { name: "Create job" }).click();
   await page.waitForURL(/\/jobs\/[0-9a-f-]{36}$/);
   await settle();
+  blankId = page.url().split("/").pop();
   await check((await rowText('[data-testid="finance-cards"]')).includes("$5,500.00"), "blank job contract value");
   for (const url of [page.url(), jobUrl]) {
     await page.goto(url);
@@ -205,9 +193,13 @@ try {
     await page.waitForURL(/\/jobs$/);
   }
   await page.goto(base + "/jobs?status=all");
-  await check((await page.getByText("E2E blank shed job").count()) === 0, "archived job hidden from list");
+  await check((await page.getByText(blankName).count()) === 0, "archived job hidden from list");
 } catch (e) {
   if (process.env.DEBUG_SHOT) { console.log(String(e).slice(0, 600), page.url()); await page.screenshot({ path: process.env.DEBUG_SHOT, fullPage: true }); }
   await check(Promise.reject(e), "unexpected error");
+} finally {
+  await purgeJob(jobId);
+  await purgeJob(blankId);
+  await purgeEstimate(cloneId);
 }
 await done();

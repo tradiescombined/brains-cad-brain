@@ -1,28 +1,16 @@
 // Module 4 — Estimates list, creation, Details tab, templates & versions.
 // Run: BASE_URL=http://localhost:3104 node e2e/estimates.e2e.mjs
-import { createClient } from "@libsql/client";
-import { start, check, done } from "./helpers.mjs";
+// Reads the seeded sample estimate (as a template source) but never mutates it; links its own lead.
+import { start, check, done, one as q1, RUN, purgeEstimate, purgeLead, purgeClient } from "./helpers.mjs";
 
-const db = createClient({ url: process.env.DATABASE_URL ?? "file:./data/bcb.db" });
-const q1 = async (sql, args = []) => (await db.execute({ sql, args })).rows[0];
-const stamp = Date.now().toString(36);
+const stamp = RUN;
 const { page, base } = await start();
-
-// Other modules' routes (sidebar, estimate tabs, /jobs/new, /clients/[id]) are built in parallel worktrees and 404
-// here when Next prefetches them. Swap the helper's console listener for one that ignores only those 404s;
-// every other console error (and every page error, still tracked by helpers) fails the run.
-const ownRoute = (path) => /^\/estimates(\/new|\/templates|\/[0-9a-f-]{36})?\/?$/.test(path);
-const consoleErrors = [];
-page.removeAllListeners("console");
-page.on("console", (m) => {
-  if (m.type() !== "error") return;
-  const url = m.location()?.url ?? "";
-  let path = "";
-  try { path = new URL(url).pathname; } catch {}
-  if (/status of 404/.test(m.text()) && path && !ownRoute(path)) return;
-  if (/favicon|Download the React DevTools/.test(m.text())) return;
-  consoleErrors.push(`${m.text()} ${url}`);
-});
+// Own lead: linking + accepting moves the lead's stage (syncLeadWithEstimate), so never use a seed lead.
+const lead = { id: crypto.randomUUID(), title: `E2E estimate lead ${stamp}` };
+{
+  const now = new Date().toISOString();
+  await q1("insert into leads (id, number, title, stage, archived, created_at, updated_at) values (?, ?, ?, 'Quoting', 0, ?, ?)", [lead.id, `LE2E-${stamp}`, lead.title, now, now]);
+}
 
 const money = (s) => Number(String(s).replace(/[^0-9.-]/g, ""));
 const headerTotal = async () => money(await page.locator("text=Quote total").first().locator("xpath=following-sibling::div[1]").innerText());
@@ -105,7 +93,6 @@ await page.locator("input[name=clientMobile]").fill("0411 222 333");
 await page.locator("select[name=taxRateId]").selectOption({ label: "GST free income" });
 await page.locator("select[name=rounding]").selectOption("hundred");
 await page.getByRole("radio", { name: /Across estimate/ }).check();
-const lead = await q1("select id, title from leads limit 1");
 await page.locator("select[name=leadId]").selectOption(lead.id);
 await check(visible(page.getByTestId("linked-lead").filter({ hasText: lead.title })), "linked lead shown");
 await page.getByRole("button", { name: "Save details" }).click();
@@ -210,5 +197,7 @@ await check(page.evaluate(() => document.documentElement.scrollWidth <= window.i
 await page.goto(base + `/estimates/${estId}`);
 await check(visible(page.locator("input[name=name]")), "details usable on phone");
 
-await check(Promise.resolve(consoleErrors.length === 0), `no console errors${consoleErrors.length ? ": " + consoleErrors.slice(0, 5).join(" | ") : ""}`);
+await purgeEstimate(estId);
+await purgeLead(lead.id);
+await purgeClient(est.client_id);
 await done();

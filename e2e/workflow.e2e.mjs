@@ -3,11 +3,8 @@
 // Job (budget, schedule) → PO → bill → variation → invoices → dashboard.
 // No route stubs, no console filters. Records are prefixed WF-<timestamp>.
 // Run: BASE_URL=http://localhost:3200 node e2e/workflow.e2e.mjs
-import { createClient } from "@libsql/client";
-import { start, check, done } from "./helpers.mjs";
-
-const db = createClient({ url: process.env.DATABASE_URL ?? "file:./data/bcb.db" });
-const one = async (sql, args = []) => (await db.execute({ sql, args })).rows[0];
+// Everything it creates is purged at the end (set KEEP_E2E_DATA=1 to keep the records for inspection).
+import { start, check, done, one, purgeJob, purgeEstimate, purgeLead, purgeClient } from "./helpers.mjs";
 
 const TAG = `WF-${Date.now()}`;
 const clientName = `${TAG} Casey Client`;
@@ -381,4 +378,11 @@ try {
   await check(Promise.resolve(false), `unexpected error: ${String(e).split("\n")[0]}`);
 }
 console.log(`   records: client ${clientId} lead ${leadId} estimate ${estId} job ${jobId}`);
+// Leave no trace for other suites (its open invoices would otherwise skew dashboard/invoice totals).
+if (!process.env.KEEP_E2E_DATA) {
+  await purgeJob(jobId);
+  await purgeEstimate(estId);
+  await purgeLead(leadId);
+  await purgeClient(clientId);
+}
 await done();

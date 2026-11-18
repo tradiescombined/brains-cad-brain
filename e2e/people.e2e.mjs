@@ -1,24 +1,10 @@
 // Module 3 — Clients & Suppliers/Trades end-to-end flows.
 // Run: BASE_URL=http://localhost:3103 node e2e/people.e2e.mjs
-import { start, check, done } from "./helpers.mjs";
+import { start, check, done, one, all, RUN, purgeClient, purgeContact, purgeEstimate } from "./helpers.mjs";
 
 const { page, base } = await start();
-
-// Standalone-worktree shim: sidebar <Link>s prefetch other modules' routes, which don't exist
-// until integration and would log 404s. Serve those prefetches from /dashboard's RSC payload.
-// Harmless once all modules are merged (real routes answer first-class).
-const OTHER_MODULES = /^\/(leads|estimates|catalogues|jobs|schedule|orders|invoices|reminders|settings)(\/|$)/;
-await page.route(
-  (url) => OTHER_MODULES.test(url.pathname) && url.searchParams.has("_rsc"),
-  async (route) => {
-    const u = new URL(route.request().url());
-    u.pathname = "/dashboard";
-    u.searchParams.delete("clientId");
-    const res = await route.fetch({ url: u.toString() });
-    await route.fulfill({ response: res });
-  },
-);
-const stamp = Date.now().toString().slice(-6);
+const startedAt = new Date().toISOString();
+const stamp = RUN;
 const biz = `E2E Builders ${stamp}`;
 const contactName = `E2E Person ${stamp}`;
 
@@ -135,11 +121,22 @@ await page.getByRole("button", { name: "Restore client" }).click();
 await check(page.getByRole("button", { name: "Archive" }).waitFor().then(() => true), "restored");
 
 // ---------- Delete blocked for referenced client ----------
-await page.goto(base + "/clients");
-await page.getByRole("link", { name: "(sample) Jordan Lee" }).click();
+// Uses this suite's own client + estimate (the seed client's estimate count varies while other suites run).
+const clientId = new URL(clientUrl).pathname.split("/").pop();
+const refEstId = crypto.randomUUID();
+const refEstName = `E2E client estimate ${stamp}`;
+{
+  const now = new Date().toISOString();
+  await one(
+    "insert into estimates (id, number, name, client_id, client_name, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?)",
+    [refEstId, `QE2E-P${stamp}`, refEstName, clientId, biz, now, now],
+  );
+}
+await page.goto(clientUrl);
 await check(seen(page.getByText(/can't be deleted because 1 estimate/)), "delete blocked with explanation");
 await page.getByRole("link", { name: /Estimates \(1\)/ }).click();
-await check(seen(page.getByRole("link", { name: "[SAMPLE] Bathroom renovation" })), "client's estimate listed");
+await check(seen(page.getByRole("link", { name: refEstName })), "client's estimate listed");
+await purgeEstimate(refEstId);
 
 // ---------- Quick add ----------
 await page.goto(base + "/clients");
@@ -264,5 +261,10 @@ await page.goto(base + "/contacts");
 await check(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "contacts list fits mobile width");
 await page.goto(base + "/clients");
 await check(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "clients list fits mobile width");
+
+// Cleanup: clients created by this run (quick add + import) and the two example contacts it imported.
+for (const r of await all("select id from clients where name like ? or business_name like ?", [`%${stamp}%`, `%${stamp}%`])) await purgeClient(r.id);
+for (const r of await all("select id from clients where business_name = 'Two Co' and created_at >= ?", [startedAt])) await purgeClient(r.id);
+for (const r of await all("select id from contacts where name in ('Coastal Roofing', 'Brick & Block Supplies') and created_at >= ?", [startedAt])) await purgeContact(r.id);
 
 await done();
