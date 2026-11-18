@@ -2,8 +2,9 @@
  * Job financials (pure, no DB): budget vs actual, margin, invoicing and work-in-progress.
  *
  * Conventions
- * - `contractValue` on the job is the ORIGINAL contract (accepted quote total, inc tax).
- *   Revised contract = original + approved variation totals (inc tax).
+ * - `contractValue` on the job is the REVISED contract (inc tax): the accepted quote total
+ *   plus approved variations. Approving a variation adds its total to jobs.contractValue
+ *   (orders/variations module); original contract = contractValue - approved variations.
  * - Budget and actual costs are ex tax. Revenue for margin is converted to ex tax.
  * - Actual cost to date = Σ actual cost amounts (ex tax) + Σ timesheet hours × rate.
  * - Invoiced = Σ non-void invoice totals (inc tax); paid = Σ amount paid on those invoices.
@@ -123,8 +124,8 @@ export function computeFinance(input: FinanceInput): JobFinance {
   const approvedVariations = r2(sum(approved, (v) => v.total));
   const approvedVariationsExTax = r2(sum(approved, (v) => v.total - (v.taxTotal ?? 0)));
   const variationCost = r2(sum(approved, (v) => v.costTotal ?? 0));
-  const originalContract = r2(Number(input.contractValue) || 0);
-  const revisedContract = r2(originalContract + approvedVariations);
+  const revisedContract = r2(Number(input.contractValue) || 0);
+  const originalContract = r2(revisedContract - approvedVariations);
   const revisedContractExTax = r2(originalContract / (1 + (Number(input.taxRate) || 0)) + approvedVariationsExTax);
 
   const budgetCost = r2(sum(input.budgetLines, (l) => l.budget));

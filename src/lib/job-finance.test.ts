@@ -3,7 +3,7 @@ import { computeFinance, budgetVsActual, parseOptions, selectionDifference, time
 import { weekStart } from "./scheduling";
 
 const base: FinanceInput = {
-  contractValue: 11000, // inc 10% GST -> 10,000 ex tax
+  contractValue: 13200, // revised contract inc GST: original 11,000 + approved variation 2,200
   taxRate: 0.1,
   budgetLines: [
     { id: "l1", category: "Demolition", budget: 1000 },

@@ -110,7 +110,7 @@ export default async function JobOverviewPage({ params }: { params: Promise<{ id
                 <Field label="Start date"><Input type="date" name="startDate" defaultValue={job.startDate ?? ""} /></Field>
                 <Field label="Finish date"><Input type="date" name="endDate" defaultValue={job.endDate ?? ""} /></Field>
                 <Field label="Client"><Select name="clientId" defaultValue={job.clientId ?? ""} options={clients.map((c) => ({ value: c.id, label: c.name }))} placeholder="— No client —" /></Field>
-                <Field label="Original contract value (inc tax)" hint="Approved variations are added automatically.">
+                <Field label="Contract value (inc tax)" hint="Includes approved variations. Approving or withdrawing a variation updates this automatically.">
                   <Input name="contractValue" inputMode="decimal" defaultValue={String(job.contractValue)} />
                 </Field>
                 <Field label="Site address" className="sm:col-span-2"><Input name="siteAddress" defaultValue={job.siteAddress ?? ""} /></Field>
