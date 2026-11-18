@@ -1,3 +1,4 @@
+import { currentPermissions } from "@/lib/permissions";
 import Link from "next/link";
 import { and, desc, eq, like, or } from "drizzle-orm";
 import { db, schema } from "@/db";
@@ -12,6 +13,7 @@ export const metadata = { title: "Leads" };
 type SP = { q?: string; stage?: string; view?: string; archived?: string };
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<SP> }) {
+  const perm = await currentPermissions();
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const view = sp.view === "board" ? "board" : "list";
@@ -65,7 +67,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       <PageHeader
         title="Leads"
         subtitle="Track enquiries from first contact through to a signed job."
-        actions={<LinkButton href="/leads/new">+ New lead</LinkButton>}
+        actions={perm["leads.edit"] && <LinkButton href="/leads/new">+ New lead</LinkButton>}
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -117,7 +119,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         <EmptyState
           title={q ? "No leads match your search" : archived ? "No archived leads" : "No leads yet"}
           body={q ? "Try a different name, suburb or lead number." : archived ? "Leads you archive will appear here." : "Capture your first enquiry and move it through the pipeline to an estimate."}
-          action={q ? <LinkButton variant="secondary" href={leadsHref({ ...base, q: undefined })}>Clear search</LinkButton> : !archived && <LinkButton href="/leads/new">+ New lead</LinkButton>}
+          action={q ? <LinkButton variant="secondary" href={leadsHref({ ...base, q: undefined })}>Clear search</LinkButton> : !archived && perm["leads.edit"] && <LinkButton href="/leads/new">+ New lead</LinkButton>}
         />
       ) : view === "board" ? (
         <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">

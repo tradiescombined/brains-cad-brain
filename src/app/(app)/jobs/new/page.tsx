@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/permissions";
 import { db, schema } from "@/db";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { Card, PageHeader } from "@/components/ui";
@@ -8,6 +9,7 @@ import { createBlankJob, createJobFromEstimate } from "../actions";
 import { NewJobForms } from "./NewJobForms";
 
 export default async function NewJobPage({ searchParams }: { searchParams: Promise<{ estimateId?: string; mode?: string }> }) {
+  await requirePermission("jobs.edit");
   const sp = await searchParams;
   const ests = await db
     .select({ id: schema.estimates.id, number: schema.estimates.number, name: schema.estimates.name, status: schema.estimates.status, quoteTotal: schema.estimates.quoteTotal, clientName: schema.estimates.clientName, jobId: schema.estimates.jobId })

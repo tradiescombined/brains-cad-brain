@@ -28,4 +28,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   `@/components/ui/client` (SubmitButton, ConfirmButton, Modal). Never use window.alert/confirm/prompt.
 - Look & feel: clean, dense, white cards on `ink-50` background, brand teal (`brand-600`). Money right
   aligned with `tabular-nums`. Australian English and AUD.
+- Permissions: every new Server Action must start with a permission check from `@/lib/permissions`
+  (`denied("…")` for actions returning state, `requirePermission("…")` for void form actions); gate new
+  pages/sections and hide controls with `currentPermissions()`. Matrix: `docs/PERMISSIONS.md`.
 - Verify before finishing: `npx tsc --noEmit`, `npm test`, and `npx next build`.

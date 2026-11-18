@@ -1,3 +1,4 @@
+import { currentPermissions } from "@/lib/permissions";
 import Link from "next/link";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
@@ -11,6 +12,7 @@ export const metadata = { title: "Estimates" };
 type SP = Promise<{ q?: string; status?: string; sort?: string; dir?: string; archived?: string }>;
 
 export default async function EstimatesPage({ searchParams }: { searchParams: SP }) {
+  const perm = await currentPermissions();
   const sp = await searchParams;
   const showArchived = sp.archived === "1";
   const statuses = (await getLookups("estimate_status")).map((s) => s.name);
@@ -44,7 +46,7 @@ export default async function EstimatesPage({ searchParams }: { searchParams: SP
         actions={
           <>
             <LinkButton variant="secondary" href="/estimates/templates">Manage templates</LinkButton>
-            <LinkButton href="/estimates/new">New estimate</LinkButton>
+            {perm["estimates.edit"] && <LinkButton href="/estimates/new">New estimate</LinkButton>}
           </>
         }
       />
@@ -86,7 +88,7 @@ export default async function EstimatesPage({ searchParams }: { searchParams: SP
         ) : showArchived ? (
           <EmptyState title="Nothing archived" body="Archived estimates are tucked away here. Archive an estimate from its actions menu." action={<LinkButton variant="secondary" href="/estimates">Back to estimates</LinkButton>} />
         ) : (
-          <EmptyState title="No estimates yet" body="Start from a blank estimate or one of your templates." action={<LinkButton href="/estimates/new">Create your first estimate</LinkButton>} />
+          <EmptyState title="No estimates yet" body="Start from a blank estimate or one of your templates." action={perm["estimates.edit"] && <LinkButton href="/estimates/new">Create your first estimate</LinkButton>} />
         )
       ) : (
         <Table>

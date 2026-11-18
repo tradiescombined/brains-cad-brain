@@ -1,4 +1,5 @@
 "use server";
+import { denied, requirePermission } from "@/lib/permissions";
 import { db, schema } from "@/db";
 import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -36,6 +37,8 @@ async function adjustContract(jobId: string, delta: number) {
 }
 
 export async function createVariation(_: FormState, f: FormData): Promise<FormState> {
+  const denial = await denied("variations.edit");
+  if (denial) return { error: denial };
   const jobId = s(f, "jobId");
   const title = s(f, "title");
   if (!title) return { error: "Give the variation a short title." };
@@ -50,6 +53,8 @@ export async function createVariation(_: FormState, f: FormData): Promise<FormSt
 }
 
 export async function saveVariation(_: FormState, f: FormData): Promise<FormState> {
+  const denial = await denied("variations.edit");
+  if (denial) return { error: denial };
   const v = await getVariation(s(f, "id"));
   if (!v) return { error: "Variation not found." };
   if (v.status === "Approved") return { error: "Approved variations are locked. Move it back to Sent to edit." };
@@ -69,10 +74,17 @@ export async function saveVariation(_: FormState, f: FormData): Promise<FormStat
 }
 
 export async function setVariationStatus(_: FormState, f: FormData): Promise<FormState> {
+  const denial = await denied("variations.edit");
+  if (denial) return { error: denial };
   const v = await getVariation(s(f, "id"));
   const to = s(f, "status") as VariationStatus;
   if (!v || !VARIATION_STATUSES.includes(to)) return { error: "Invalid status." };
   if (v.status === to) return null;
+  // Approving (or un-approving) changes the contract value, so it needs the approve permission.
+  if (to === "Approved" || v.status === "Approved") {
+    const noApprove = await denied("variations.approve");
+    if (noApprove) return { error: noApprove };
+  }
   if (to === "Approved" && parseVariationLines(v.lines).length === 0) return { error: "Add at least one line before approving." };
   if (v.status === "Approved" && (await isInvoiced(v.jobId, v.id))) return { error: "This variation has been invoiced. Void that invoice before changing the approval." };
   const delta = contractDeltaForVariation(v.status, to, v.total);
@@ -87,9 +99,11 @@ export async function setVariationStatus(_: FormState, f: FormData): Promise<For
 }
 
 export async function deleteVariation(f: FormData) {
+  await requirePermission("variations.edit");
   const v = await getVariation(s(f, "id"));
   if (!v) return;
   if (v.status === "Approved") {
+    await requirePermission("variations.approve");
     if (await isInvoiced(v.jobId, v.id)) return;
     await adjustContract(v.jobId, -v.total);
   }

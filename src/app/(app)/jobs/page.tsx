@@ -1,3 +1,4 @@
+import { currentPermissions } from "@/lib/permissions";
 import Link from "next/link";
 import { db, schema } from "@/db";
 import { desc, eq } from "drizzle-orm";
@@ -7,6 +8,7 @@ import { clientNames, loadFinanceForJobs, JOB_STATUSES } from "../schedule/_lib/
 import { ProgressBar, pctText } from "../schedule/_lib/bits";
 
 export default async function JobsPage({ searchParams }: { searchParams: Promise<{ status?: string; q?: string }> }) {
+  const perm = await currentPermissions();
   const sp = await searchParams;
   const status = sp.status ?? "active";
   const q = (sp.q ?? "").trim().toLowerCase();
@@ -41,7 +43,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
         actions={
           <>
             <LinkButton variant="secondary" href="/schedule">Schedule</LinkButton>
-            <LinkButton href="/jobs/new">New job</LinkButton>
+            {perm["jobs.edit"] && <LinkButton href="/jobs/new">New job</LinkButton>}
           </>
         }
       />
@@ -72,7 +74,7 @@ export default async function JobsPage({ searchParams }: { searchParams: Promise
           <EmptyState
             title="No jobs yet"
             body="Turn an accepted estimate into a job to carry its costings across as a budget, or start a blank job."
-            action={<LinkButton href="/jobs/new">Create your first job</LinkButton>}
+            action={perm["jobs.edit"] && <LinkButton href="/jobs/new">Create your first job</LinkButton>}
           />
         ) : (
           <EmptyState title="No jobs match" body="Try a different search or status filter." action={<LinkButton variant="secondary" href="/jobs?status=all">Show all jobs</LinkButton>} />

@@ -1,9 +1,11 @@
 "use server";
+import { requirePermission } from "@/lib/permissions";
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function addNote(formData: FormData) {
+  await requirePermission("notes.edit");
   const body = String(formData.get("body") ?? "").trim();
   const entityType = String(formData.get("entityType"));
   const entityId = String(formData.get("entityId"));
@@ -12,11 +14,13 @@ export async function addNote(formData: FormData) {
 }
 
 export async function deleteNote(formData: FormData) {
+  await requirePermission("notes.edit");
   await db.delete(schema.notes).where(eq(schema.notes.id, String(formData.get("id"))));
   revalidatePath(String(formData.get("path") ?? "/"));
 }
 
 export async function uploadDocuments(formData: FormData) {
+  await requirePermission("notes.edit");
   const entityType = String(formData.get("entityType"));
   const entityId = String(formData.get("entityId"));
   const folder = String(formData.get("folder") || "Unassigned");
@@ -32,6 +36,7 @@ export async function uploadDocuments(formData: FormData) {
 }
 
 export async function deleteDocument(formData: FormData) {
+  await requirePermission("notes.edit");
   await db.delete(schema.documents).where(eq(schema.documents.id, String(formData.get("id"))));
   revalidatePath(String(formData.get("path") ?? "/"));
 }

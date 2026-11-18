@@ -1,4 +1,5 @@
 "use server";
+import { denied, requirePermission } from "@/lib/permissions";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -33,6 +34,8 @@ function revalidate() {
 }
 
 export async function saveReminder(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const denial = await denied("reminders.edit");
+  if (denial) return errState(denial);
   const raw = Object.fromEntries([...fd.entries()].filter(([, v]) => typeof v === "string")) as Record<string, string>;
   const r = reminderSchema.safeParse(raw);
   if (!r.success) return errState("Please fix the highlighted fields.", issuesToFieldErrors(r.error.issues));
@@ -51,6 +54,7 @@ export async function saveReminder(_prev: ActionState, fd: FormData): Promise<Ac
 }
 
 export async function toggleReminder(fd: FormData) {
+  await requirePermission("reminders.edit");
   const id = String(fd.get("id") ?? "");
   const [r] = await db.select().from(schema.reminders).where(eq(schema.reminders.id, id));
   if (!r) return;
@@ -60,12 +64,14 @@ export async function toggleReminder(fd: FormData) {
 }
 
 export async function deleteReminder(fd: FormData) {
+  await requirePermission("reminders.edit");
   const id = String(fd.get("id") ?? "");
   await db.delete(schema.reminders).where(eq(schema.reminders.id, id));
   revalidate();
 }
 
 export async function clearDoneReminders() {
+  await requirePermission("reminders.edit");
   await db.delete(schema.reminders).where(eq(schema.reminders.done, true));
   revalidate();
 }

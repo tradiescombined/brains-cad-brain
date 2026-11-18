@@ -1,3 +1,4 @@
+import { routeDenied } from "@/lib/permissions";
 import { db, schema } from "@/db";
 import { asc, eq } from "drizzle-orm";
 import { exportFileName, toCsv, type CsvCell } from "@/app/(app)/clients/csv";
@@ -8,6 +9,8 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/export/contacts[?archived=1] → CSV of suppliers & trades (headers match the importer). */
 export async function GET(req: Request) {
+  const denied = await routeDenied(null);
+  if (denied) return denied;
   const includeArchived = new URL(req.url).searchParams.get("archived") === "1";
   const q = db.select().from(schema.contacts).orderBy(asc(schema.contacts.name));
   const rows = includeArchived ? await q : await q.where(eq(schema.contacts.archived, false));

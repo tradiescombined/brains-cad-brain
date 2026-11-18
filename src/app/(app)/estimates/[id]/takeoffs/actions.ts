@@ -1,4 +1,5 @@
 "use server";
+import { denied } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { and, asc, eq, isNull, max } from "drizzle-orm";
 import { z } from "zod";
@@ -48,6 +49,8 @@ const planInput = z.object({
 });
 
 export async function addPlan(estimateId: string, input: z.input<typeof planInput>): Promise<ActionResult<{ id: string }>> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, error: denial };
   const parsed = planInput.safeParse(input);
   if (!parsed.success) return fail(firstIssue(parsed.error));
   if (parsed.data.dataUrl.length * 0.75 > MAX_IMAGE_BYTES) return fail("Image is larger than 20 MB");
@@ -71,6 +74,8 @@ export async function addPlan(estimateId: string, input: z.input<typeof planInpu
 }
 
 export async function renamePlan(planId: string, label: string): Promise<ActionResult<null>> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, error: denial };
   const name = String(label ?? "").trim();
   if (!name) return fail("Plan name is required");
   if (name.length > 120) return fail("Plan name is too long");
@@ -82,6 +87,8 @@ export async function renamePlan(planId: string, label: string): Promise<ActionR
 }
 
 export async function movePlan(planId: string, direction: "up" | "down"): Promise<ActionResult<null>> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, error: denial };
   const p = await getPlan(planId);
   if (!p) return fail("Plan not found");
   const list = await db
@@ -99,6 +106,8 @@ export async function movePlan(planId: string, direction: "up" | "down"): Promis
 }
 
 export async function deletePlan(planId: string): Promise<ActionResult<null>> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, error: denial };
   const p = await getPlan(planId);
   if (!p) return fail("Plan not found");
   await db.delete(schema.measurements).where(eq(schema.measurements.planId, planId));
@@ -111,6 +120,8 @@ export async function deletePlan(planId: string): Promise<ActionResult<null>> {
 
 /** Sets (or clears with null) the plan scale in mm per px, then re-evaluates its measurements. */
 export async function setPlanScale(planId: string, mmPerPx: number | null, sourceDpi?: number | null): Promise<ActionResult<null>> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, error: denial };
   if (mmPerPx !== null && !(Number.isFinite(mmPerPx) && mmPerPx > 0 && mmPerPx < 1e6)) return fail("Scale must be a positive number");
   const p = await getPlan(planId);
   if (!p) return fail("Plan not found");
@@ -159,6 +170,8 @@ async function allocateCode(estimateId: string): Promise<string> {
 }
 
 export async function createMeasurement(input: z.input<typeof createInput>): Promise<ActionResult<{ id: string; code: string }>> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, error: denial };
   const parsed = createInput.safeParse(input);
   if (!parsed.success) return fail(firstIssue(parsed.error));
   const d = parsed.data;
@@ -196,6 +209,8 @@ function round1(n: number) {
 }
 
 export async function updateMeasurement(id: string, input: MeasurementProps): Promise<ActionResult<{ value: number; unit: string }>> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, error: denial };
   const parsed = props.safeParse(input);
   if (!parsed.success) return fail(firstIssue(parsed.error));
   const [m] = await db.select().from(schema.measurements).where(eq(schema.measurements.id, id));
@@ -216,6 +231,8 @@ export async function updateMeasurement(id: string, input: MeasurementProps): Pr
 }
 
 export async function deleteMeasurement(id: string): Promise<ActionResult<null>> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, error: denial };
   const [m] = await db.select().from(schema.measurements).where(eq(schema.measurements.id, id));
   if (!m) return fail("Measurement not found");
   await db.delete(schema.measurements).where(eq(schema.measurements.id, id));
@@ -232,6 +249,8 @@ export async function createCostingItem(
   categoryId: string,
   description?: string,
 ): Promise<ActionResult<{ itemId: string; categoryId: string }>> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, error: denial };
   const [m] = await db.select().from(schema.measurements).where(eq(schema.measurements.id, measurementId));
   if (!m) return fail("Measurement not found");
   const estimateId = m.estimateId;

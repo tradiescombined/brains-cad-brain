@@ -1,4 +1,5 @@
 "use server";
+import { denied, requirePermission } from "@/lib/permissions";
 import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -42,6 +43,8 @@ async function syncPayments(invoiceId: string) {
 }
 
 export async function createInvoice(_: FormState, f: FormData): Promise<FormState> {
+  const denial = await denied("invoices.edit");
+  if (denial) return { error: denial };
   const jobId = s(f, "jobId");
   const kind = s(f, "kind") as InvoiceKind;
   if (!INVOICE_KINDS.includes(kind)) return { error: "Choose an invoice type." };
@@ -102,6 +105,8 @@ export async function createInvoice(_: FormState, f: FormData): Promise<FormStat
 }
 
 export async function saveInvoice(_: FormState, f: FormData): Promise<FormState> {
+  const denial = await denied("invoices.edit");
+  if (denial) return { error: denial };
   const inv = await getInvoice(s(f, "id"));
   if (!inv) return { error: "Invoice not found." };
   if (inv.status === "Void") return { error: "Void invoices can't be edited." };
@@ -125,6 +130,7 @@ export async function saveInvoice(_: FormState, f: FormData): Promise<FormState>
 }
 
 export async function setInvoiceStatus(f: FormData) {
+  await requirePermission("invoices.edit");
   const inv = await getInvoice(s(f, "id"));
   const action = s(f, "action");
   if (!inv) return;
@@ -144,6 +150,8 @@ export async function setInvoiceStatus(f: FormData) {
 }
 
 export async function addPayment(_: FormState, f: FormData): Promise<FormState> {
+  const denial = await denied("invoices.payments");
+  if (denial) return { error: denial };
   const inv = await getInvoice(s(f, "invoiceId"));
   if (!inv) return { error: "Invoice not found." };
   if (inv.status === "Void") return { error: "Can't record payments on a void invoice." };
@@ -162,6 +170,7 @@ export async function addPayment(_: FormState, f: FormData): Promise<FormState> 
 }
 
 export async function deletePayment(f: FormData) {
+  await requirePermission("invoices.payments");
   const [p] = await db.select().from(schema.payments).where(eq(schema.payments.id, s(f, "id")));
   if (!p) return;
   await db.delete(schema.payments).where(eq(schema.payments.id, p.id));
@@ -171,6 +180,7 @@ export async function deletePayment(f: FormData) {
 }
 
 export async function deleteInvoice(f: FormData) {
+  await requirePermission("invoices.edit");
   const inv = await getInvoice(s(f, "id"));
   if (!inv) redirect("/invoices");
   await db.delete(schema.payments).where(eq(schema.payments.invoiceId, inv.id));

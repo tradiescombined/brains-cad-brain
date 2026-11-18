@@ -10,11 +10,13 @@ import { eq } from "drizzle-orm";
 import { Badge, statusTone } from "@/components/ui";
 import { RouteTabs } from "@/components/shell/RouteTabs";
 import { money } from "@/lib/format";
+import { currentPermissions } from "@/lib/permissions";
 
 export default async function JobLayout({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [j] = await db.select().from(schema.jobs).where(eq(schema.jobs.id, id));
   if (!j) notFound();
+  const p = await currentPermissions();
   return (
     <div>
       <div className="no-print mb-4 flex flex-wrap items-start justify-between gap-4">
@@ -26,20 +28,21 @@ export default async function JobLayout({ children, params }: { children: React.
           </div>
           <div className="mt-1 text-sm text-ink-500">{j.number}{j.siteAddress ? ` · ${j.siteAddress}` : ""}</div>
         </div>
-        <div className="text-right">
-          <div className="text-xs uppercase tracking-wide text-ink-500">Contract value</div>
-          <div className="text-2xl font-semibold tabular-nums">{money(j.contractValue)}</div>
-        </div>
+        {p["invoices.view"] && (
+          <div className="text-right">
+            <div className="text-xs uppercase tracking-wide text-ink-500">Contract value</div>
+            <div className="text-2xl font-semibold tabular-nums">{money(j.contractValue)}</div>
+          </div>
+        )}
       </div>
       <RouteTabs
         base={`/jobs/${id}`}
         tabs={[
           { seg: "", label: "Overview" },
           { seg: "schedule", label: "Schedule" },
-          { seg: "costs", label: "Cost tracking" },
-          { seg: "orders", label: "Orders" },
-          { seg: "variations", label: "Variations" },
-          { seg: "invoices", label: "Invoices" },
+          ...(p["costs.view"] ? [{ seg: "costs", label: "Cost tracking" }] : []),
+          ...(p["orders.view"] ? [{ seg: "orders", label: "Orders" }] : []),
+          ...(p["invoices.view"] ? [{ seg: "variations", label: "Variations" }, { seg: "invoices", label: "Invoices" }] : []),
           { seg: "timesheets", label: "Timesheets" },
           { seg: "selections", label: "Selections" },
           { seg: "files", label: "Notes & files" },

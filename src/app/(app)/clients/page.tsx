@@ -1,3 +1,4 @@
+import { currentPermissions } from "@/lib/permissions";
 import Link from "next/link";
 import { db, schema } from "@/db";
 import { count, eq } from "drizzle-orm";
@@ -15,6 +16,7 @@ const SORTS = ["name", "type", "email", "mobile", "city", "source", "estimates",
 type SP = { q?: string; sort?: string; dir?: string; archived?: string; clientId?: string; deleted?: string; imported?: string };
 
 export default async function ClientsPage({ searchParams }: { searchParams: Promise<SP> }) {
+  const perm = await currentPermissions();
   const sp = await searchParams;
   const { sort, dir } = parseSort(sp.sort, sp.dir, SORTS, "name");
   const showArchived = sp.archived === "1";
@@ -55,13 +57,13 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
         subtitle={`${clients.length - archivedCount} active${archivedCount ? ` · ${archivedCount} archived` : ""}`}
         actions={
           <>
-            <LinkButton href="/clients/import" variant="secondary">Import CSV</LinkButton>
-            <a href={`/api/export/clients${showArchived ? "?archived=1" : ""}`} className="inline-flex items-center rounded-md border border-ink-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-800 shadow-xs hover:bg-ink-50" download>
+            {perm["clients.edit"] && <LinkButton href="/clients/import" variant="secondary">Import CSV</LinkButton>
+}            <a href={`/api/export/clients${showArchived ? "?archived=1" : ""}`} className="inline-flex items-center rounded-md border border-ink-200 bg-white px-3 py-1.5 text-sm font-medium text-ink-800 shadow-xs hover:bg-ink-50" download>
               Export CSV
             </a>
             <QuickCreateClient returnTo="/clients" label="Quick add" />
-            <LinkButton href="/clients/new">New client</LinkButton>
-          </>
+            {perm["clients.edit"] && <LinkButton href="/clients/new">New client</LinkButton>
+}          </>
         }
       />
 
@@ -87,7 +89,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
         <EmptyState
           title="No clients yet"
           body="Add the people and businesses you quote for, or bring them across from a spreadsheet."
-          action={<div className="flex gap-2"><LinkButton href="/clients/import" variant="secondary">Import CSV</LinkButton><LinkButton href="/clients/new">New client</LinkButton></div>}
+          action={perm["clients.edit"] && <div className="flex gap-2"><LinkButton href="/clients/import" variant="secondary">Import CSV</LinkButton><LinkButton href="/clients/new">New client</LinkButton></div>}
         />
       ) : sorted.length === 0 ? (
         <EmptyState title="No matching clients" body={sp.q ? `Nothing matches “${sp.q}”. Try a different search${showArchived ? "" : " or show archived clients"}.` : "All clients are archived."} />

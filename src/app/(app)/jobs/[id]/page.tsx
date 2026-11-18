@@ -10,11 +10,13 @@ import { archiveJob, updateJob } from "../actions";
 import { getJob, loadJobFinance, loadTasks, JOB_STATUSES } from "../../schedule/_lib/job-data";
 import { ActionForm, ConfirmSubmit } from "../../schedule/_lib/client";
 import { ProgressBar, pctText, signTone } from "../../schedule/_lib/bits";
+import { currentPermissions } from "@/lib/permissions";
 
 export default async function JobOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const job = await getJob(id);
   if (!job) notFound();
+  const p = await currentPermissions();
   const [f, tasks, clients, contacts] = await Promise.all([
     loadJobFinance(job),
     loadTasks(id),
@@ -30,20 +32,22 @@ export default async function JobOverviewPage({ params }: { params: Promise<{ id
     .sort((a, b) => taskStart(a).localeCompare(taskStart(b)))
     .slice(0, 6);
 
-  const cards: { label: string; value: string; sub?: string; tone?: string }[] = [
-    { label: "Contract value", value: money(f.revisedContract), sub: f.approvedVariationCount ? `${money(f.originalContract)} + ${f.approvedVariationCount} approved variation${f.approvedVariationCount === 1 ? "" : "s"}` : "Inc tax · no approved variations" },
-    { label: "Budget cost", value: money(f.revisedBudget), sub: f.variationCost ? `incl. ${money(f.variationCost)} variations` : "Ex tax" },
-    { label: "Actual cost to date", value: money(f.actualToDate), sub: `${money(f.actualCosts)} costs + ${money(f.labourCost)} labour`, tone: f.actualToDate > f.revisedBudget && f.revisedBudget > 0 ? "text-red-700" : undefined },
-    { label: "Invoiced", value: money(f.invoiced), sub: `${pctText(f.invoicedPercent, 0)} of contract` },
-    { label: "Paid", value: money(f.paid) },
-    { label: "Outstanding", value: money(f.outstanding), tone: f.outstanding > 0 ? "text-amber-700" : undefined },
-    { label: "Forecast margin", value: f.revisedContractExTax ? pctText(f.forecastMarginPercent) : "—", sub: `${money(f.forecastMargin)} on ${money(f.forecastCost)} forecast cost`, tone: f.forecastMargin < 0 ? "text-red-700" : "text-emerald-700" },
-    { label: "Work in progress", value: money(f.wip), sub: f.wip >= 0 ? `Under-billed · ${pctText(f.percentComplete, 0)} complete by cost` : `Over-billed · ${pctText(f.percentComplete, 0)} complete by cost` },
+  // `money` = contract/invoice figures (invoices.view); `cost` = budget, actuals and margin (costs.view).
+  const allCards: { label: string; value: string; sub?: string; tone?: string; need: "invoices.view" | "costs.view" }[] = [
+    { need: "invoices.view", label: "Contract value", value: money(f.revisedContract), sub: f.approvedVariationCount ? `${money(f.originalContract)} + ${f.approvedVariationCount} approved variation${f.approvedVariationCount === 1 ? "" : "s"}` : "Inc tax · no approved variations" },
+    { need: "costs.view", label: "Budget cost", value: money(f.revisedBudget), sub: f.variationCost ? `incl. ${money(f.variationCost)} variations` : "Ex tax" },
+    { need: "costs.view", label: "Actual cost to date", value: money(f.actualToDate), sub: `${money(f.actualCosts)} costs + ${money(f.labourCost)} labour`, tone: f.actualToDate > f.revisedBudget && f.revisedBudget > 0 ? "text-red-700" : undefined },
+    { need: "invoices.view", label: "Invoiced", value: money(f.invoiced), sub: `${pctText(f.invoicedPercent, 0)} of contract` },
+    { need: "invoices.view", label: "Paid", value: money(f.paid) },
+    { need: "invoices.view", label: "Outstanding", value: money(f.outstanding), tone: f.outstanding > 0 ? "text-amber-700" : undefined },
+    { need: "costs.view", label: "Forecast margin", value: f.revisedContractExTax ? pctText(f.forecastMarginPercent) : "—", sub: `${money(f.forecastMargin)} on ${money(f.forecastCost)} forecast cost`, tone: f.forecastMargin < 0 ? "text-red-700" : "text-emerald-700" },
+    { need: "costs.view", label: "Work in progress", value: money(f.wip), sub: f.wip >= 0 ? `Under-billed · ${pctText(f.percentComplete, 0)} complete by cost` : `Over-billed · ${pctText(f.percentComplete, 0)} complete by cost` },
   ];
+  const cards = allCards.filter((c) => p[c.need]);
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="finance-cards">
+      {cards.length > 0 && <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="finance-cards">
         {cards.map((c) => (
           <div key={c.label} className="rounded-lg border border-ink-200 bg-white p-4">
             <div className="text-xs font-medium uppercase tracking-wide text-ink-500">{c.label}</div>
@@ -51,11 +55,11 @@ export default async function JobOverviewPage({ params }: { params: Promise<{ id
             {c.sub && <div className="mt-0.5 truncate text-xs text-ink-500" title={c.sub}>{c.sub}</div>}
           </div>
         ))}
-      </div>
+      </div>}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <Card title="Budget vs actual by category" pad={false} actions={<Link href={`/jobs/${id}/costs`} className="text-xs font-medium text-brand-700 hover:underline">Cost tracking →</Link>}>
+          {p["costs.view"] && <Card title="Budget vs actual by category" pad={false} actions={<Link href={`/jobs/${id}/costs`} className="text-xs font-medium text-brand-700 hover:underline">Cost tracking →</Link>}>
             {f.byCategory.length === 0 ? (
               <p className="p-4 text-sm text-ink-500">No budget or costs yet. <Link className="text-brand-700 hover:underline" href={`/jobs/${id}/costs`}>Add budget lines or costs</Link>.</p>
             ) : (
@@ -98,7 +102,7 @@ export default async function JobOverviewPage({ params }: { params: Promise<{ id
                 </table>
               </div>
             )}
-          </Card>
+          </Card>}
 
           <Card title="Job details">
             <ActionForm action={updateJob} successText="Job details saved." className="space-y-4">
@@ -110,9 +114,13 @@ export default async function JobOverviewPage({ params }: { params: Promise<{ id
                 <Field label="Start date"><Input type="date" name="startDate" defaultValue={job.startDate ?? ""} /></Field>
                 <Field label="Finish date"><Input type="date" name="endDate" defaultValue={job.endDate ?? ""} /></Field>
                 <Field label="Client"><Select name="clientId" defaultValue={job.clientId ?? ""} options={clients.map((c) => ({ value: c.id, label: c.name }))} placeholder="— No client —" /></Field>
-                <Field label="Contract value (inc tax)" hint="Includes approved variations. Approving or withdrawing a variation updates this automatically.">
-                  <Input name="contractValue" inputMode="decimal" defaultValue={String(job.contractValue)} />
-                </Field>
+                {p["invoices.view"] ? (
+                  <Field label="Contract value (inc tax)" hint="Includes approved variations. Approving or withdrawing a variation updates this automatically.">
+                    <Input name="contractValue" inputMode="decimal" defaultValue={String(job.contractValue)} />
+                  </Field>
+                ) : (
+                  <input type="hidden" name="contractValue" value={String(job.contractValue)} />
+                )}
                 <Field label="Site address" className="sm:col-span-2"><Input name="siteAddress" defaultValue={job.siteAddress ?? ""} /></Field>
                 <Field label="Suburb / town"><Input name="siteCityTown" defaultValue={job.siteCityTown ?? ""} /></Field>
                 <div className="grid grid-cols-2 gap-3">
@@ -125,7 +133,7 @@ export default async function JobOverviewPage({ params }: { params: Promise<{ id
                 <span className="text-xs text-ink-500">
                   {estimate ? <>From estimate <Link href={`/estimates/${estimate.id}`} className="text-brand-700 hover:underline">{estimate.number} · {estimate.name}</Link></> : "Blank job (no estimate)"}
                 </span>
-                <SubmitButton>Save details</SubmitButton>
+                {p["jobs.edit"] && <SubmitButton>Save details</SubmitButton>}
               </div>
             </ActionForm>
           </Card>
@@ -168,13 +176,13 @@ export default async function JobOverviewPage({ params }: { params: Promise<{ id
             )}
           </Card>
 
-          <Card title="Danger zone">
+          {p["jobs.edit"] && <Card title="Danger zone">
             <p className="mb-3 text-sm text-ink-600">Archiving hides this job from lists and the schedule and frees its estimate to create a new job. Its records are kept.</p>
             <form action={archiveJob}>
               <input type="hidden" name="id" value={job.id} />
               <ConfirmSubmit confirmText="Yes, archive job">Archive job</ConfirmSubmit>
             </form>
-          </Card>
+          </Card>}
         </div>
       </div>
     </div>

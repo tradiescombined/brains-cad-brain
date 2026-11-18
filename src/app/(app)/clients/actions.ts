@@ -1,4 +1,5 @@
 "use server";
+import { denied, requirePermission } from "@/lib/permissions";
 import { db, schema } from "@/db";
 import { and, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -16,6 +17,8 @@ function str(fd: FormData, k: string) {
 }
 
 export async function createClient(_prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("clients.edit");
+  if (denial) return { message: denial, savedAt: Date.now() };
   const values = formToObject(fd);
   const v = validateClient(values);
   if (!v.ok) return { errors: v.errors, values, message: "Check the highlighted fields.", savedAt: Date.now() };
@@ -26,6 +29,8 @@ export async function createClient(_prev: FormState, fd: FormData): Promise<Form
 }
 
 export async function updateClient(id: string, _prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("clients.edit");
+  if (denial) return { message: denial, savedAt: Date.now() };
   const values = formToObject(fd);
   const v = validateClient(values);
   if (!v.ok) return { errors: v.errors, values, message: "Check the highlighted fields.", savedAt: Date.now() };
@@ -39,6 +44,8 @@ export async function updateClient(id: string, _prev: FormState, fd: FormData): 
 
 /** Quick-create used by the reusable modal. Redirects to returnTo?clientId=<id>. */
 export async function quickCreateClient(_prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("clients.edit");
+  if (denial) return { message: denial, savedAt: Date.now() };
   const values = formToObject(fd);
   const v = validateClient(values);
   if (!v.ok) return { errors: v.errors, values, message: "Check the highlighted fields.", savedAt: Date.now() };
@@ -50,6 +57,7 @@ export async function quickCreateClient(_prev: FormState, fd: FormData): Promise
 }
 
 export async function setClientArchived(fd: FormData) {
+  await requirePermission("clients.edit");
   const id = str(fd, "id");
   const archived = str(fd, "archived") === "1";
   await db.update(C).set({ archived }).where(eq(C.id, id));
@@ -59,6 +67,8 @@ export async function setClientArchived(fd: FormData) {
 }
 
 export async function deleteClient(_prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("records.delete");
+  if (denial) return { message: denial, savedAt: Date.now() };
   const id = str(fd, "id");
   const refs = await clientReferences(id);
   if (refs.estimates || refs.jobs || refs.leads) {
@@ -84,6 +94,8 @@ async function clearOtherPrimaries(clientId: string, keepId: string) {
 }
 
 export async function saveClientContact(_prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("clients.edit");
+  if (denial) return { message: denial, savedAt: Date.now() };
   const values = formToObject(fd);
   const clientId = str(fd, "clientId");
   const contactId = str(fd, "contactId");
@@ -102,6 +114,7 @@ export async function saveClientContact(_prev: FormState, fd: FormData): Promise
 }
 
 export async function makePrimaryContact(fd: FormData) {
+  await requirePermission("clients.edit");
   const clientId = str(fd, "clientId");
   const id = str(fd, "contactId");
   await db.update(schema.clientContacts).set({ isPrimary: true }).where(and(eq(schema.clientContacts.id, id), eq(schema.clientContacts.clientId, clientId)));
@@ -110,6 +123,7 @@ export async function makePrimaryContact(fd: FormData) {
 }
 
 export async function removeClientContact(fd: FormData) {
+  await requirePermission("clients.edit");
   const clientId = str(fd, "clientId");
   await db.delete(schema.clientContacts).where(and(eq(schema.clientContacts.id, str(fd, "contactId")), eq(schema.clientContacts.clientId, clientId)));
   revalidatePath(`/clients/${clientId}`);
@@ -120,6 +134,8 @@ export async function removeClientContact(fd: FormData) {
 export type ImportResult = { imported: number; failed: { row: number; name: string; error: string }[] };
 
 export async function importClients(records: Record<string, string>[]): Promise<ImportResult> {
+  const denial = await denied("clients.edit");
+  if (denial) return { imported: 0, failed: [{ row: 0, name: "", error: denial }] };
   const result: ImportResult = { imported: 0, failed: [] };
   const valid: (typeof C.$inferInsert)[] = [];
   records.slice(0, 5000).forEach((r, i) => {

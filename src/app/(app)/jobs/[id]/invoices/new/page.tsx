@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/permissions";
 import Link from "next/link";
 import { getDefaultTaxRate } from "@/lib/settings";
 import { todayIso } from "@/lib/format";
@@ -8,6 +9,7 @@ import { NewInvoiceForm } from "../../../../invoices/_shared/InvoiceClient";
 export const metadata = { title: "New invoice" };
 
 export default async function NewInvoicePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ kind?: string }> }) {
+  await requirePermission("invoices.edit");
   const { id } = await params;
   const { kind } = await searchParams;
   const [c, tax] = await Promise.all([getJobContract(id), getDefaultTaxRate()]);

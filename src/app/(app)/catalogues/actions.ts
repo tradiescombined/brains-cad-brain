@@ -1,4 +1,5 @@
 "use server";
+import { denied, requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -27,6 +28,8 @@ const CatalogueSchema = z
 
 /** Create or update a catalogue (useActionState). */
 export async function saveCatalogue(_prev: FormState, fd: FormData): Promise<FormState> {
+  const denial = await denied("catalogues.edit");
+  if (denial) return { error: denial };
   const id = String(fd.get("id") ?? "");
   const parsed = CatalogueSchema.safeParse({
     name: fd.get("name") ?? "",
@@ -60,6 +63,7 @@ export async function saveCatalogue(_prev: FormState, fd: FormData): Promise<For
 }
 
 export async function deleteCatalogue(fd: FormData) {
+  await requirePermission("catalogues.edit");
   const id = String(fd.get("id") ?? "");
   const c = await getCatalogue(id);
   if (!c) return;
@@ -70,6 +74,7 @@ export async function deleteCatalogue(fd: FormData) {
 }
 
 export async function duplicateCatalogueAction(fd: FormData) {
+  await requirePermission("catalogues.edit");
   const id = String(fd.get("id") ?? "");
   const newId = await duplicateCatalogue(id);
   if (!newId) return;

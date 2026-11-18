@@ -6,6 +6,8 @@ import { getLookups, getTaxRates } from "@/lib/settings";
 import { taxableDefaults } from "@/lib/tax-defaults";
 import { parseMarkupLines } from "@/lib/calc";
 import { CostingsGrid } from "./CostingsGrid";
+import { ReadOnlyCostings } from "./ReadOnlyCostings";
+import { currentPermissions } from "@/lib/permissions";
 
 export const metadata = { title: "Costings" };
 
@@ -13,6 +15,8 @@ export default async function CostingsPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const l = await loadEstimate(id);
   if (!l) notFound();
+  const p = await currentPermissions();
+  if (!p["estimates.edit"]) return <ReadOnlyCostings l={l} showCosts={p["costs.view"]} />;
   const [uoms, contacts, catalogues, catCategories, taxRates] = await Promise.all([
     getLookups("unit_measure"),
     db

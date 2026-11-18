@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/permissions";
 import Link from "next/link";
 import { db, schema } from "@/db";
 import { asc, eq } from "drizzle-orm";
@@ -9,6 +10,7 @@ import { BudgetPicker } from "./BudgetPicker";
 export const metadata = { title: "Create orders from budget" };
 
 export default async function FromBudgetPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ group?: string }> }) {
+  await requirePermission("orders.edit");
   const { id } = await params;
   const { group } = await searchParams;
   const groupBy = group === "category" ? "category" : "costType";

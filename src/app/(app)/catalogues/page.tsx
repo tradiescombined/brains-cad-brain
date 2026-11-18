@@ -1,3 +1,4 @@
+import { currentPermissions } from "@/lib/permissions";
 import Link from "next/link";
 import { asc } from "drizzle-orm";
 import { db, schema } from "@/db";
@@ -16,6 +17,7 @@ function effectiveStatus(status: string, expiryDate: string | null) {
 }
 
 export default async function CataloguesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
+  const perm = await currentPermissions();
   const sp = await searchParams;
   const q = (sp.q ?? "").trim().toLowerCase();
   const statusFilter = sp.status ?? "";
@@ -106,14 +108,14 @@ export default async function CataloguesPage({ searchParams }: { searchParams: P
                           suppliers={suppliers}
                           initial={{ id: c.id, name: c.name, shortCode: c.shortCode, description: c.description, supplierId: c.supplierId, colour: c.colour, status: c.status, effectiveDate: c.effectiveDate, expiryDate: c.expiryDate }}
                         />
-                        <form action={duplicateCatalogueAction}>
+                        {perm["catalogues.edit"] && <><form action={duplicateCatalogueAction}>
                           <input type="hidden" name="id" value={c.id} />
                           <Button type="submit" variant="ghost">Duplicate</Button>
                         </form>
                         <form action={deleteCatalogue}>
                           <input type="hidden" name="id" value={c.id} />
                           <ConfirmSubmit confirmText={c.items ? `Delete with ${c.items} item${c.items === 1 ? "" : "s"}?` : "Confirm delete"}>Delete</ConfirmSubmit>
-                        </form>
+                        </form></>}
                       </div>
                     </Td>
                   </tr>

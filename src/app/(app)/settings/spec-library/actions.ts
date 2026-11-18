@@ -1,4 +1,5 @@
 "use server";
+import { denied, requirePermission } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -18,6 +19,8 @@ function parseTree(raw: FormDataEntryValue | null) {
 
 /** Creates a library template from the editor's current tree (used on the estimate Specifications tab). */
 export async function saveTreeAsTemplate(_prev: EditorActionState, fd: FormData): Promise<EditorActionState> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, message: denial, at: Date.now() };
   const name = String(fd.get("templateName") ?? "").trim();
   if (!name) return { ok: false, message: "Enter a template name.", at: Date.now() };
   const tree = parseTree(fd.get("templateTree"));
@@ -29,6 +32,7 @@ export async function saveTreeAsTemplate(_prev: EditorActionState, fd: FormData)
 }
 
 export async function createTemplate(fd: FormData) {
+  await requirePermission("settings.manage");
   const name = String(fd.get("name") ?? "").trim().slice(0, 120) || "Untitled template";
   const [row] = await db.insert(schema.specificationTemplates).values({ name, content: "[]" }).returning();
   revalidatePath("/settings/spec-library");
@@ -36,6 +40,8 @@ export async function createTemplate(fd: FormData) {
 }
 
 export async function saveTemplate(templateId: string, _prev: EditorActionState, fd: FormData): Promise<EditorActionState> {
+  const denial = await denied("settings.manage");
+  if (denial) return { ok: false, message: denial, at: Date.now() };
   const name = String(fd.get("name") ?? "").trim();
   if (!name) return { ok: false, message: "Template name is required.", at: Date.now() };
   const tree = parseTree(fd.get("tree"));
@@ -51,6 +57,7 @@ export async function saveTemplate(templateId: string, _prev: EditorActionState,
 }
 
 export async function deleteTemplate(fd: FormData) {
+  await requirePermission("settings.manage");
   const id = String(fd.get("id") ?? "");
   if (id) await db.delete(schema.specificationTemplates).where(eq(schema.specificationTemplates.id, id));
   revalidatePath("/settings/spec-library");

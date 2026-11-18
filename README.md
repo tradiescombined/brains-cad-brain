@@ -57,6 +57,7 @@ redistribution, rounding). Call `recalcEstimate(id)` after any change.
 
 Conventions for contributors (human or AI): `AGENTS.md`. Product spec: `docs/SPEC.md`.
 Feature-by-feature comparison with the reference app: `docs/FIDELITY.md`.
+Roles & permissions (every Server Action must check one): `docs/PERMISSIONS.md`, `src/lib/permissions.ts`.
 
 ## Data
 

@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/permissions";
 import { asc, eq, and, count } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { PageHeader } from "@/components/ui";
@@ -8,6 +9,7 @@ import { NewEstimateForm } from "./NewEstimateForm";
 export const metadata = { title: "New estimate" };
 
 export default async function NewEstimatePage({ searchParams }: { searchParams: Promise<{ template?: string; clientId?: string }> }) {
+  await requirePermission("estimates.edit");
   const sp = await searchParams;
   const templates = await db
     .select({

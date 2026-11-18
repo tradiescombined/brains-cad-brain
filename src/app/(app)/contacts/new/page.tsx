@@ -1,3 +1,4 @@
+import { requirePermission } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui";
 import { getLookups } from "@/lib/settings";
 import { createContact } from "../actions";
@@ -6,6 +7,7 @@ import { ContactForm } from "../ContactForm";
 export const metadata = { title: "New supplier or trade" };
 
 export default async function NewContactPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
+  await requirePermission("contacts.edit");
   const sp = await searchParams;
   const [types, groups] = await Promise.all([getLookups("contact_type"), getLookups("contact_group")]);
   return (

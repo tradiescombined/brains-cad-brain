@@ -1,4 +1,5 @@
 "use server";
+import { canManageUser, checkPermission, denied, lastOwnerError, requirePermission } from "@/lib/permissions";
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db, schema } from "@/db";
@@ -21,6 +22,8 @@ function revalidateAll() {
 /* ───────────────────────── Business details ───────────────────────── */
 
 export async function saveBusiness(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const denial = await denied("settings.manage");
+  if (denial) return errState(denial);
   const r = businessSchema.safeParse(formToObject(fd));
   if (!r.success) return errState(FIX, issuesToFieldErrors(r.error.issues));
   const cur = await getSettings();
@@ -48,6 +51,8 @@ async function activeOwnerCount(excludeId?: string) {
 }
 
 export async function saveUser(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const actor = await checkPermission("users.manage");
+  if (!actor.ok) return errState(actor.error);
   const r = userSchema.safeParse(formToObject(fd));
   if (!r.success) return errState(FIX, issuesToFieldErrors(r.error.issues));
   const id = s(fd, "id") || undefined;
@@ -57,22 +62,31 @@ export async function saveUser(_p: ActionState, fd: FormData): Promise<ActionSta
   if (id) {
     const [cur] = await db.select().from(schema.users).where(eq(schema.users.id, id));
     if (!cur) return errState("That user no longer exists.");
-    const losingOwner = cur.role === "Owner" && cur.active && (r.data.role !== "Owner" || !r.data.active);
-    if (losingOwner && (await activeOwnerCount(id)) === 0) return errState("There must be at least one active Owner.", { role: "Keep at least one active Owner" });
+    const notAllowed = canManageUser(actor.user.role, cur, r.data.role);
+    if (notAllowed) return errState(notAllowed, { role: notAllowed });
+    const lastOwner = lastOwnerError(cur, r.data, await activeOwnerCount(id));
+    if (lastOwner) return errState(lastOwner, { role: "Keep at least one active Owner" });
     await db.update(schema.users).set({ ...r.data, email }).where(eq(schema.users.id, id));
     revalidatePath("/settings/users");
     return okState(`${r.data.firstName} updated`);
   }
+  const notAllowed = canManageUser(actor.user.role, null, r.data.role);
+  if (notAllowed) return errState(notAllowed, { role: notAllowed });
   await db.insert(schema.users).values({ ...r.data, email });
   revalidatePath("/settings/users");
   return okState(`${r.data.firstName} added`);
 }
 
 export async function deleteUser(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const actor = await checkPermission("users.manage");
+  if (!actor.ok) return errState(actor.error);
   const id = s(fd, "id");
   const [cur] = await db.select().from(schema.users).where(eq(schema.users.id, id));
   if (!cur) return errState("That user no longer exists.");
-  if (cur.role === "Owner" && cur.active && (await activeOwnerCount(id)) === 0) return errState("You can't delete the only active Owner.");
+  const notAllowed = canManageUser(actor.user.role, cur);
+  if (notAllowed) return errState(notAllowed);
+  const lastOwner = lastOwnerError(cur, null, await activeOwnerCount(id));
+  if (lastOwner) return errState(lastOwner);
   await db.delete(schema.users).where(eq(schema.users.id, id));
   revalidatePath("/settings/users");
   return okState("User deleted");
@@ -90,6 +104,8 @@ async function makeDefaultTaxRate(id: string, appliesTo: "income" | "expense") {
 }
 
 export async function saveTaxRate(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const denial = await denied("settings.manage");
+  if (denial) return errState(denial);
   const r = taxRateSchema.safeParse(formToObject(fd));
   if (!r.success) return errState(FIX, issuesToFieldErrors(r.error.issues));
   const id = s(fd, "id") || undefined;
@@ -111,12 +127,15 @@ export async function saveTaxRate(_p: ActionState, fd: FormData): Promise<Action
 }
 
 export async function setDefaultTaxRate(fd: FormData) {
+  await requirePermission("settings.manage");
   const [t] = await db.select().from(schema.taxRates).where(eq(schema.taxRates.id, s(fd, "id")));
   if (t) await makeDefaultTaxRate(t.id, t.appliesTo);
   revalidateAll();
 }
 
 export async function deleteTaxRate(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const denial = await denied("settings.manage");
+  if (denial) return errState(denial);
   const id = s(fd, "id");
   const [t] = await db.select().from(schema.taxRates).where(eq(schema.taxRates.id, id));
   if (!t) return errState("That tax rate no longer exists.");
@@ -130,6 +149,8 @@ export async function deleteTaxRate(_p: ActionState, fd: FormData): Promise<Acti
 
 /** Tax profile name / short code and home-country dialling code. */
 export async function saveTaxProfile(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const denial = await denied("settings.manage");
+  if (denial) return errState(denial);
   const taxProfileName = s(fd, "taxProfileName");
   const taxProfileCode = s(fd, "taxProfileCode").toUpperCase();
   const fieldErrors: Record<string, string> = {};
@@ -146,6 +167,8 @@ export async function saveTaxProfile(_p: ActionState, fd: FormData): Promise<Act
 
 /** Which tax rate is the default for each cost type, on the income and expense side. */
 export async function saveCostTypeTaxDefaults(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const denial = await denied("settings.manage");
+  if (denial) return errState(denial);
   const all = await db.select().from(schema.taxRates);
   const updates: Record<string, string> = {};
   for (const side of ["income", "expense"] as const) {
@@ -168,6 +191,8 @@ export async function saveCostTypeTaxDefaults(_p: ActionState, fd: FormData): Pr
 /* ───────────────────────── Numbering ───────────────────────── */
 
 export async function saveNumbering(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const denial = await denied("settings.manage");
+  if (denial) return errState(denial);
   const r = numberingSchema.safeParse(formToObject(fd));
   if (!r.success) return errState(FIX, issuesToFieldErrors(r.error.issues));
   const v = r.data;
@@ -197,6 +222,8 @@ export async function saveNumbering(_p: ActionState, fd: FormData): Promise<Acti
 /* ───────────────────────── Quote defaults ───────────────────────── */
 
 export async function saveQuoteDefaults(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const denial = await denied("settings.manage");
+  if (denial) return errState(denial);
   const r = quoteDefaultsSchema.safeParse(formToObject(fd));
   if (!r.success) return errState(FIX, issuesToFieldErrors(r.error.issues));
   const cur = await getSettings();
@@ -213,6 +240,8 @@ export async function saveQuoteDefaults(_p: ActionState, fd: FormData): Promise<
 /* ───────────────────────── Display preferences ───────────────────────── */
 
 export async function saveDisplay(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const denial = await denied("settings.manage");
+  if (denial) return errState(denial);
   const cur = await getSettings();
   await db
     .update(schema.businessSettings)
@@ -238,6 +267,8 @@ function revalidateLists(kind: string) {
 }
 
 export async function addLookup(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const denial = await denied("settings.manage");
+  if (denial) return errState(denial);
   const kind = s(fd, "kind");
   if (!KIND_RE.test(kind)) return errState("Unknown list.");
   const name = lookupNameSchema.safeParse(fd.get("name") ?? "");
@@ -283,6 +314,8 @@ async function cascadeRename(kind: string, from: string, to: string) {
 }
 
 export async function renameLookup(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const denial = await denied("settings.manage");
+  if (denial) return errState(denial);
   const id = s(fd, "id");
   const [row] = await db.select().from(schema.lookups).where(eq(schema.lookups.id, id));
   if (!row) return errState("That value no longer exists.");
@@ -298,6 +331,7 @@ export async function renameLookup(_p: ActionState, fd: FormData): Promise<Actio
 }
 
 export async function moveLookup(fd: FormData) {
+  await requirePermission("settings.manage");
   const id = s(fd, "id");
   const dir = s(fd, "dir") === "up" ? "up" : "down";
   const [row] = await db.select().from(schema.lookups).where(eq(schema.lookups.id, id));
@@ -310,6 +344,7 @@ export async function moveLookup(fd: FormData) {
 }
 
 export async function toggleLookupActive(fd: FormData) {
+  await requirePermission("settings.manage");
   const [row] = await db.select().from(schema.lookups).where(eq(schema.lookups.id, s(fd, "id")));
   if (!row) return;
   if (row.active && row.flag) return; // the accepted status must stay active
@@ -318,6 +353,7 @@ export async function toggleLookupActive(fd: FormData) {
 }
 
 export async function setAcceptedStatus(fd: FormData) {
+  await requirePermission("settings.manage");
   const [row] = await db.select().from(schema.lookups).where(eq(schema.lookups.id, s(fd, "id")));
   if (!row || row.kind !== "estimate_status") return;
   await db.update(schema.lookups).set({ flag: false }).where(eq(schema.lookups.kind, "estimate_status"));
@@ -326,6 +362,8 @@ export async function setAcceptedStatus(fd: FormData) {
 }
 
 export async function deleteLookup(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const denial = await denied("settings.manage");
+  if (denial) return errState(denial);
   const [row] = await db.select().from(schema.lookups).where(eq(schema.lookups.id, s(fd, "id")));
   if (!row) return errState("That value no longer exists.");
   if (row.isSystem) return errState("Built-in values can't be deleted — deactivate it instead.");

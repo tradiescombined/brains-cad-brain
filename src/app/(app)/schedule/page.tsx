@@ -1,3 +1,4 @@
+import { currentPermissions } from "@/lib/permissions";
 import Link from "next/link";
 import { db, schema } from "@/db";
 import { and, asc, eq, inArray } from "drizzle-orm";
@@ -9,6 +10,7 @@ import { Gantt, type GanttRow, type Zoom } from "./_lib/Gantt";
 import { PrintButton } from "./_lib/client";
 
 export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ job?: string; assignee?: string; zoom?: string }> }) {
+  const perm = await currentPermissions();
   const sp = await searchParams;
   const zoom: Zoom = sp.zoom === "day" || sp.zoom === "month" ? sp.zoom : "week";
   const jobs = await db
@@ -87,7 +89,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         </div>
       </div>
       {jobs.length === 0 ? (
-        <EmptyState title="No active jobs" body="Jobs that are not started, in progress or on hold appear here with their tasks." action={<LinkButton href="/jobs/new">Create a job</LinkButton>} />
+        <EmptyState title="No active jobs" body="Jobs that are not started, in progress or on hold appear here with their tasks." action={perm["jobs.edit"] && <LinkButton href="/jobs/new">Create a job</LinkButton>} />
       ) : (
         <Gantt rows={rows} today={today} zoom={zoom} emptyText={sp.job || sp.assignee ? "No tasks match these filters." : "None of your active jobs have scheduled tasks yet."} />
       )}
