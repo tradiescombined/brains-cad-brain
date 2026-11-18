@@ -4,7 +4,8 @@ import { and, asc, eq, isNull, max } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { recalcEstimate } from "@/lib/estimates";
-import { logActivity } from "@/lib/settings";
+import { getTaxRates, logActivity } from "@/lib/settings";
+import { defaultTaxable, taxableDefaults } from "@/lib/tax-defaults";
 import { NEW_CATEGORY } from "./types";
 import { computeMeasurement, isValidShape, nextMeasurementCode, parsePoints, SHAPES, type Pt, type Shape } from "@/lib/geometry";
 
@@ -273,6 +274,7 @@ export async function createCostingItem(
       quantity: m.value,
       measurementId: m.id,
       sortOrder: (s ?? -1) + 1,
+      taxable: defaultTaxable(taxableDefaults(await getTaxRates()), "Material"),
     })
     .returning({ id: schema.estimateItems.id });
   await recalcEstimate(estimateId);

@@ -52,6 +52,8 @@ export const contacts = sqliteTable("contacts", {
   state: text("state"),
   postcode: text("postcode"),
   businessNumber: text("business_number"),
+  /** Registered for GST: their bills/orders attract GST. */
+  gstRegistered: integer("gst_registered", { mode: "boolean" }).notNull().default(true),
   accountNumber: text("account_number"),
   paymentTermsDays: integer("payment_terms_days"),
   insuranceExpiry: text("insurance_expiry"),

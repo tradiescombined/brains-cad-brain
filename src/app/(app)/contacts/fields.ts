@@ -20,6 +20,7 @@ export type ContactInput = {
   state: string | null;
   postcode: string | null;
   businessNumber: string | null;
+  gstRegistered: boolean;
   accountNumber: string | null;
   paymentTermsDays: number | null;
   insuranceExpiry: string | null;
@@ -43,6 +44,7 @@ export const CONTACT_FIELDS: CsvField[] = [
   { key: "state", label: "State", aliases: ["region", "territory"] },
   { key: "postcode", label: "Postcode", aliases: ["post code", "zip", "postal code"] },
   { key: "businessNumber", label: "ABN", aliases: ["business number", "acn"] },
+  { key: "gstRegistered", label: "GST registered", aliases: ["registered for gst", "gst registered"] },
   { key: "accountNumber", label: "Account number", aliases: ["account", "account no", "acct", "customer number"] },
   { key: "paymentTermsDays", label: "Payment terms (days)", aliases: ["payment terms", "terms", "payment days"] },
   { key: "insuranceExpiry", label: "Insurance expiry", aliases: ["insurance", "insurance expires", "public liability expiry", "insurance expiry date"] },
@@ -114,6 +116,7 @@ export function validateContact(raw: Record<string, unknown>): Validated<Contact
       state: clean(raw.state)?.toUpperCase() ?? null,
       postcode: clean(raw.postcode),
       businessNumber,
+      gstRegistered: parseGstRegistered(raw.gstRegistered, raw.gstRegisteredField),
       accountNumber: clean(raw.accountNumber),
       paymentTermsDays,
       insuranceExpiry,
@@ -122,6 +125,16 @@ export function validateContact(raw: Record<string, unknown>): Validated<Contact
       notes: clean(raw.notes),
     },
   };
+}
+
+/**
+ * GST registration flag. The form posts a marker field so an unticked box means "no";
+ * imports without the column default to registered (most trades are).
+ */
+export function parseGstRegistered(v: unknown, formMarker?: unknown): boolean {
+  const s = clean(Array.isArray(v) ? v[v.length - 1] : v);
+  if (s === null) return !formMarker;
+  return /^(on|true|yes|y|1|registered)$/i.test(s);
 }
 
 export type InsuranceStatus = { state: "none" | "ok" | "expiring" | "expired"; days: number | null };

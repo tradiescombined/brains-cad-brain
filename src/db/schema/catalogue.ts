@@ -31,7 +31,7 @@ export const catalogueItems = sqliteTable("catalogue_items", {
   itemCode: text("item_code"),
   description: text("description").notNull(),
   details: text("details"),
-  costType: text("cost_type", { enum: ["Material", "Labour", "Equipment", "Subcontractor", "Other"] })
+  costType: text("cost_type", { enum: ["Material", "Labour", "MatLab", "Equipment", "Subcontractor", "Other"] })
     .notNull()
     .default("Material"),
   uom: text("uom").notNull().default("ea"),

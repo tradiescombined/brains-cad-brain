@@ -33,6 +33,23 @@ describe("estimateKpis", () => {
     expect(k.closesNeeded).toBe(1);
   });
 
+  it("computes the average win value once the win rate unlocks", () => {
+    const locked = estimateKpis([{ status: "Accepted", quoteTotal: 1000 }], statuses);
+    expect(locked.averageWinValue).toBeNull();
+    const k = estimateKpis(
+      [
+        { status: "Accepted", quoteTotal: 10000 },
+        { status: "Accepted", quoteTotal: 25000.5 },
+        { status: "Rejected", quoteTotal: 99999 },
+      ],
+      statuses,
+    );
+    expect(k.averageWinValue).toBe(17500.25);
+    const none = estimateKpis([{ status: "Rejected", quoteTotal: 1 }, { status: "Rejected", quoteTotal: 1 }, { status: "Rejected", quoteTotal: 1 }], statuses);
+    expect(none.winRate).toBe(0);
+    expect(none.averageWinValue).toBeNull();
+  });
+
   it("computes win rate = accepted / (accepted + rejected)", () => {
     const k = estimateKpis(
       [

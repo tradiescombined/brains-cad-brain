@@ -3,6 +3,7 @@ import { LinkButton } from "@/components/ui";
 import type { Estimate } from "@/db/schema";
 import { getLookups } from "@/lib/settings";
 import { StatusSelect, OverflowMenu } from "../_components/HeaderControls";
+import { EmailQuoteButton } from "./EmailQuote";
 
 export async function EstimateHeaderActions({ estimate }: { estimate: Estimate }) {
   const statuses = (await getLookups("estimate_status")).map((s) => s.name);
@@ -15,6 +16,7 @@ export async function EstimateHeaderActions({ estimate }: { estimate: Estimate }
         <LinkButton href={`/estimates/new?template=${e.id}`}>Use template</LinkButton>
       ) : (
         <>
+          <EmailQuoteButton estimateId={e.id} sent={!!e.sentAt} />
           <LinkButton variant="secondary" href={`/estimates/${e.id}/quote`}>Prepare quote</LinkButton>
           {e.jobId ? (
             <LinkButton variant="secondary" href={`/jobs/${e.jobId}`}>View job</LinkButton>

@@ -3,7 +3,8 @@ import { asc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { Card } from "@/components/ui";
 import { DocumentsPanel, NotesPanel } from "@/components/records";
-import { getLookups, getTaxRates } from "@/lib/settings";
+import { getLookups, getSettings, getTaxRates } from "@/lib/settings";
+import { dialCodeForCountry } from "@/lib/phone";
 import { parseMarkupLines } from "@/lib/calc";
 import { date, money } from "@/lib/format";
 import { DetailsForm } from "../_components/DetailsForm";
@@ -72,6 +73,7 @@ export default async function EstimateDetailsPage({ params }: { params: Promise<
             clients={clients.filter((c) => !c.archived || c.id === e.clientId)}
             leads={leads.filter((l) => !l.archived || l.id === e.leadId)}
             taxRates={taxRates.filter((t) => t.appliesTo === "income" || t.id === e.taxRateId).map((t) => ({ id: t.id, label: t.name }))}
+            dialCode={dialCodeForCountry((await getSettings()).country)}
           />
         </div>
         <div className="space-y-5">

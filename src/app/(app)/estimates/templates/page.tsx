@@ -3,9 +3,9 @@ import { and, asc, count, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { EmptyState, LinkButton, PageHeader, Table, Td, Th } from "@/components/ui";
 import { ConfirmSubmit } from "../_components/ConfirmSubmit";
-import { getLookups } from "@/lib/settings";
+import { getLookups, getSettings } from "@/lib/settings";
 import { date, money } from "@/lib/format";
-import { deleteEstimate } from "../actions";
+import { deleteEstimate, setDefaultTemplate } from "../actions";
 import { NewTemplateForm, RenameTemplate } from "./TemplateForms";
 
 export const metadata = { title: "Estimate templates" };
@@ -28,6 +28,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
   );
   const buildingTypes = (await getLookups("building_type")).map((l) => l.name);
   const saved = templates.find((t) => t.id === sp.saved);
+  const defaultId = (await getSettings()).defaultTemplateId;
 
   return (
     <div>
@@ -64,6 +65,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
                 <Td>
                   <RenameTemplate id={t.id} name={t.name} buildingType={t.buildingType ?? ""} buildingTypes={buildingTypes} />
                   {t.archived && <span className="mt-1 inline-block text-xs text-amber-700">Archived</span>}
+                  {t.id === defaultId && <span data-testid="default-template" className="mt-1 inline-block rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-800 ring-1 ring-inset ring-brand-200">Default for new estimates</span>}
                 </Td>
                 <Td className="hidden text-right tabular-nums sm:table-cell">{counts.get(t.id) ?? 0}</Td>
                 <Td className="hidden text-right tabular-nums md:table-cell">{money(t.quoteTotal)}</Td>
@@ -72,6 +74,13 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
                   <div className="flex flex-wrap items-center justify-end gap-2">
                     <LinkButton variant="secondary" href={`/estimates/${t.id}`}>Open</LinkButton>
                     <LinkButton variant="secondary" href={`/estimates/new?template=${t.id}`}>Use</LinkButton>
+                    <form action={setDefaultTemplate}>
+                      <input type="hidden" name="id" value={t.id} />
+                      {t.id === defaultId && <input type="hidden" name="clear" value="1" />}
+                      <button type="submit" className="rounded-md px-2 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50">
+                        {t.id === defaultId ? "Clear default" : "Make default"}
+                      </button>
+                    </form>
                     <form action={deleteEstimate}>
                       <input type="hidden" name="id" value={t.id} />
                       <input type="hidden" name="redirectTo" value="/estimates/templates" />

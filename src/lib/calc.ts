@@ -16,7 +16,7 @@
  */
 import { tryEvaluate } from "./expr";
 
-export type CostType = "Material" | "Labour" | "Equipment" | "Subcontractor" | "Other";
+export type CostType = "Material" | "Labour" | "MatLab" | "Equipment" | "Subcontractor" | "Other";
 export type AllowanceType = "none" | "PC" | "PS";
 export type Redistribution = "none" | "across_estimate" | "within_category";
 export type Rounding = "none" | "dollar" | "ten" | "hundred" | "thousand";

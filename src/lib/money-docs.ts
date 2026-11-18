@@ -111,7 +111,7 @@ export function dominantCostType(lines: Pick<PoLine, "costType" | "quantity" | "
 
 export const VARIATION_STATUSES = ["Draft", "Sent", "Approved", "Rejected"] as const;
 export type VariationStatus = (typeof VARIATION_STATUSES)[number];
-export const COST_TYPES = ["Material", "Labour", "Equipment", "Subcontractor", "Other"] as const;
+export const COST_TYPES = ["Material", "Labour", "MatLab", "Equipment", "Subcontractor", "Other"] as const;
 
 export type VariationLine = { description: string; quantity: number; uom: string; unitCost: number; costType: string };
 

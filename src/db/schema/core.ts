@@ -21,6 +21,9 @@ export const businessSettings = sqliteTable("business_settings", {
   brandColour: text("brand_colour").notNull().default("#0f766e"),
   defaultMarkupPercent: real("default_markup_percent").notNull().default(20),
   defaultTaxRateId: text("default_tax_rate_id"),
+  /** Tax profile the tax rates belong to (e.g. "GST" / "GST"). */
+  taxProfileName: text("tax_profile_name").notNull().default("GST"),
+  taxProfileCode: text("tax_profile_code").notNull().default("GST"),
   quoteValidDays: integer("quote_valid_days").notNull().default(30),
   defaultInvoiceDueDays: integer("default_invoice_due_days").notNull().default(14),
   estimateNumberPrefix: text("estimate_number_prefix").notNull().default("Q"),
@@ -37,6 +40,8 @@ export const businessSettings = sqliteTable("business_settings", {
   /** Default quote cover letter / T&Cs for new quotes (null = built-in wording). Merge fields allowed. */
   defaultCoverLetter: text("default_cover_letter"),
   defaultTermsAndConditions: text("default_terms_and_conditions"),
+  /** Template preselected when starting a new estimate (null = blank). */
+  defaultTemplateId: text("default_template_id"),
   showDashboardQuickStart: integer("show_dashboard_quick_start", { mode: "boolean" }).notNull().default(true),
   showDashboardEstimateSummary: integer("show_dashboard_estimate_summary", { mode: "boolean" }).notNull().default(true),
   ...timestamps,
@@ -64,6 +69,11 @@ export const taxRates = sqliteTable("tax_rates", {
   appliesTo: text("applies_to", { enum: ["income", "expense"] }).notNull().default("income"),
   isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
+  /**
+   * JSON array of cost types this rate is the default for, e.g. ["Material","Labour"].
+   * New costing items take their taxable flag from the income rate set for their cost type.
+   */
+  defaultCostTypes: text("default_cost_types").notNull().default("[]"),
 });
 
 /**

@@ -3,6 +3,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { Card, Input, Select, Textarea } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/client";
+import { PhoneField } from "@/components/ui/PhoneInput";
 import type { FormState } from "../clients/actions";
 import { AU_STATES, F, FormMessage } from "../clients/FormBits";
 import { withCurrent } from "../clients/list";
@@ -72,8 +73,8 @@ export function ContactForm({ action, initial, types, groups, submitLabel, cance
             <F label="Email" error={e.email} className="sm:col-span-2">
               <Input name="email" type="email" defaultValue={val("email")} placeholder="orders@example.com" />
             </F>
-            <F label="Mobile" error={e.mobile}><Input name="mobile" type="tel" defaultValue={val("mobile")} /></F>
-            <F label="Phone" error={e.phone}><Input name="phone" type="tel" defaultValue={val("phone")} /></F>
+            <PhoneField label="Mobile" error={e.mobile} name="mobile" defaultValue={val("mobile")} />
+            <PhoneField label="Phone" error={e.phone} name="phone" defaultValue={val("phone")} />
             <F label="Website" error={e.website} className="sm:col-span-2"><Input name="website" defaultValue={val("website")} placeholder="example.com.au" /></F>
           </div>
         </Card>
@@ -90,6 +91,13 @@ export function ContactForm({ action, initial, types, groups, submitLabel, cance
         <Card title="Compliance & accounts">
           <div className="grid gap-3 sm:grid-cols-2">
             <F label="ABN" error={e.businessNumber} hint="11 digits"><Input name="businessNumber" defaultValue={val("businessNumber")} inputMode="numeric" /></F>
+            <div className="flex items-end pb-1.5">
+              <input type="hidden" name="gstRegisteredField" value="1" />
+              <label className="inline-flex items-center gap-2 text-sm text-ink-800">
+                <input type="checkbox" name="gstRegistered" defaultChecked={state.values ? state.values.gstRegistered !== undefined : val("gstRegistered") !== "false"} className="size-4 accent-brand-600" />
+                Registered for GST
+              </label>
+            </div>
             <F label="Licence number" error={e.licenceNumber}><Input name="licenceNumber" defaultValue={val("licenceNumber")} /></F>
             <F label="Insurance expiry" error={e.insuranceExpiry} hint="We flag it 30 days before expiry"><Input name="insuranceExpiry" type="date" defaultValue={val("insuranceExpiry")} /></F>
             <F label="Rating" error={e.rating}>

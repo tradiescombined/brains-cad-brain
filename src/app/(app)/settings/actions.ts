@@ -3,6 +3,7 @@ import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db, schema } from "@/db";
 import { getSettings } from "@/lib/settings";
+import { TAX_COST_TYPES, assignCostTypes } from "@/lib/tax-defaults";
 import { errState, issuesToFieldErrors, okState, type ActionState } from "./_components/action-state";
 import {
   businessSchema, userSchema, taxRateSchema, numberingSchema, quoteDefaultsSchema, lookupNameSchema,
@@ -125,6 +126,43 @@ export async function deleteTaxRate(_p: ActionState, fd: FormData): Promise<Acti
   await db.delete(schema.taxRates).where(eq(schema.taxRates.id, id));
   revalidateAll();
   return okState("Tax rate deleted");
+}
+
+/** Tax profile name / short code and home-country dialling code. */
+export async function saveTaxProfile(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const taxProfileName = s(fd, "taxProfileName");
+  const taxProfileCode = s(fd, "taxProfileCode").toUpperCase();
+  const fieldErrors: Record<string, string> = {};
+  if (!taxProfileName) fieldErrors.taxProfileName = "Enter a profile name";
+  else if (taxProfileName.length > 60) fieldErrors.taxProfileName = "Keep it under 60 characters";
+  if (!taxProfileCode) fieldErrors.taxProfileCode = "Enter a short code";
+  else if (!/^[A-Z0-9-]{1,10}$/.test(taxProfileCode)) fieldErrors.taxProfileCode = "Up to 10 letters, numbers or dashes";
+  if (Object.keys(fieldErrors).length) return errState(FIX, fieldErrors);
+  const cur = await getSettings();
+  await db.update(schema.businessSettings).set({ taxProfileName, taxProfileCode }).where(eq(schema.businessSettings.id, cur.id));
+  revalidateAll();
+  return okState("Tax profile saved");
+}
+
+/** Which tax rate is the default for each cost type, on the income and expense side. */
+export async function saveCostTypeTaxDefaults(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const all = await db.select().from(schema.taxRates);
+  const updates: Record<string, string> = {};
+  for (const side of ["income", "expense"] as const) {
+    const rates = all.filter((r) => r.appliesTo === side);
+    const choice: Record<string, string> = {};
+    for (const t of TAX_COST_TYPES) {
+      const id = s(fd, `${side}:${t}`);
+      if (id && !rates.some((r) => r.id === id)) return errState(FIX, { [`${side}:${t}`]: "Choose a rate from the list" });
+      choice[t] = id;
+    }
+    Object.assign(updates, assignCostTypes(rates.map((r) => r.id), choice));
+  }
+  await db.transaction(async (tx) => {
+    for (const [id, json] of Object.entries(updates)) await tx.update(schema.taxRates).set({ defaultCostTypes: json }).where(eq(schema.taxRates.id, id));
+  });
+  revalidateAll();
+  return okState("Cost type defaults saved");
 }
 
 /* ───────────────────────── Numbering ───────────────────────── */

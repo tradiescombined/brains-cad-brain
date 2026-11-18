@@ -3,12 +3,13 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { cx } from "@/lib/format";
 import { insertToken } from "@/lib/costings-tree";
 
-export const COST_TYPES = ["Material", "Labour", "Equipment", "Subcontractor", "Other"] as const;
+export const COST_TYPES = ["Material", "Labour", "MatLab", "Equipment", "Subcontractor", "Other"] as const;
 export type CostTypeName = (typeof COST_TYPES)[number];
 
 export const costTypeTone: Record<string, string> = {
   Material: "bg-sky-50 text-sky-800 ring-sky-200",
   Labour: "bg-amber-50 text-amber-800 ring-amber-200",
+  MatLab: "bg-cyan-50 text-cyan-800 ring-cyan-200",
   Equipment: "bg-violet-50 text-violet-800 ring-violet-200",
   Subcontractor: "bg-emerald-50 text-emerald-800 ring-emerald-200",
   Other: "bg-ink-100 text-ink-700 ring-ink-200",
@@ -16,13 +17,18 @@ export const costTypeTone: Record<string, string> = {
 export const costTypeBar: Record<string, string> = {
   Material: "bg-sky-500",
   Labour: "bg-amber-500",
+  MatLab: "bg-cyan-500",
   Equipment: "bg-violet-500",
   Subcontractor: "bg-emerald-500",
   Other: "bg-ink-400",
 };
+/** Display label for a cost type value ("MatLab" reads as "Mat + Lab"). */
+export const costTypeLabel = (t: string) => (t === "MatLab" ? "Mat + Lab" : t);
+
 export const costTypeShort: Record<string, string> = {
   Material: "Material",
   Labour: "Labour",
+  MatLab: "Mat + Lab",
   Equipment: "Equipment",
   Subcontractor: "Subbie",
   Other: "Other",
@@ -182,7 +188,7 @@ export function CostTypeSelect({ value, onChange, rowId, disabled }: { value: st
       )}
     >
       {COST_TYPES.map((t) => (
-        <option key={t} value={t}>{t}</option>
+        <option key={t} value={t}>{costTypeLabel(t)}</option>
       ))}
     </select>
   );

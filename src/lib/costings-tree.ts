@@ -350,7 +350,7 @@ export interface NewCostingRow extends TreeRow {
   catalogueItemId: string | null;
 }
 
-const COST_TYPES = ["Material", "Labour", "Equipment", "Subcontractor", "Other"];
+const COST_TYPES = ["Material", "Labour", "MatLab", "Equipment", "Subcontractor", "Other"];
 export const normCostType = (c: string | null | undefined) => (COST_TYPES.includes(String(c)) ? String(c) : "Other");
 
 /** Format a quantity for storage in quantityExpr ("12.5", never "1e-7"). */

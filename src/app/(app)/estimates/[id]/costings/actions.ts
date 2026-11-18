@@ -7,10 +7,12 @@ import { recalcEstimate } from "@/lib/estimates";
 import { catalogueToRows, subtreeIds, validateTree, childrenOf } from "@/lib/costings-tree";
 import type { EstimateItem } from "@/db/schema";
 import type { MarkupLine } from "@/lib/calc";
+import { getTaxRates } from "@/lib/settings";
+import { defaultTaxable, taxableDefaults } from "@/lib/tax-defaults";
 
 export type ActionResult = { ok: true; items: EstimateItem[] } | { ok: false; error: string };
 
-const COST_TYPES = ["Material", "Labour", "Equipment", "Subcontractor", "Other"] as const;
+const COST_TYPES = ["Material", "Labour", "MatLab", "Equipment", "Subcontractor", "Other"] as const;
 const finite = z.number().refine((n) => Number.isFinite(n), "Must be a number");
 const optText = (max: number) => z.string().max(max).nullable();
 
@@ -239,11 +241,13 @@ export async function addCatalogueItems(estimateId: string, input: { categoryId:
   if (!picks.length) return { ok: false, error: "Those catalogue items no longer exist" };
   const start = childrenOf(current, categoryId).reduce((m, r) => Math.max(m, r.sortOrder), 0);
   const rows = catalogueToRows(picks, categoryId, start);
+  const taxDefaults = taxableDefaults(await getTaxRates());
   await db.insert(schema.estimateItems).values(
     rows.map((r) => ({
       ...r,
       estimateId,
       costType: r.costType as (typeof COST_TYPES)[number],
+      taxable: defaultTaxable(taxDefaults, r.costType),
     })),
   );
   return finish(estimateId);

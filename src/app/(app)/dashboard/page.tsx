@@ -91,7 +91,10 @@ export default async function DashboardPage() {
             k.winRate === null ? (
               <>Close {k.closesNeeded} more estimate{k.closesNeeded === 1 ? "" : "s"} to unlock (needs {MIN_CLOSED_FOR_WIN_RATE} won or lost)</>
             ) : (
-              <>{k.accepted} won · {k.rejected} lost</>
+              <>
+                {k.accepted} won · {k.rejected} lost
+                {k.averageWinValue !== null && <span data-testid="avg-win-value"> · avg win {money(k.averageWinValue, { cents: false })}</span>}
+              </>
             )
           }
         />
