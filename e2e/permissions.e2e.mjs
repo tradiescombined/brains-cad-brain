@@ -37,7 +37,7 @@ try {
   for (const label of ["Dashboard", "Estimates", "Catalogues", "Jobs", "Orders", "Invoices", "Settings"]) {
     await check(vis(nav.getByRole("link", { name: label, exact: true })), `sidebar shows ${label}`);
   }
-  await check(vis(page.getByTestId("current-user").getByText(/Owner/)), "sidebar shows the acting user's role");
+  await check(vis(page.getByTestId("signed-in-user").getByText(/Owner/)), "sidebar shows the acting user's role");
   await check(vis(page.getByTestId("kpi-invoices")), "dashboard shows invoice KPI");
 
   /* ───────────── Last active Owner guard ───────────── */
@@ -77,7 +77,7 @@ try {
     await go(p);
     await check(Promise.resolve(page.url().includes("/no-access")), `${p} → sign-in required`);
   }
-  await check(vis(page.getByTestId("sign-in-required").getByText("Sign in required")), "sign-in card rendered");
+  await check(vis(page.getByTestId("no-access")), "no-access card rendered");
   const res = await page.request.get(base + "/api/export/clients");
   await check(Promise.resolve(res.status() === 401), "CSV export → 401 when signed out");
 
