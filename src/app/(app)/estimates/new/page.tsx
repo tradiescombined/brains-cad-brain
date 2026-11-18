@@ -7,7 +7,7 @@ import { NewEstimateForm } from "./NewEstimateForm";
 
 export const metadata = { title: "New estimate" };
 
-export default async function NewEstimatePage({ searchParams }: { searchParams: Promise<{ template?: string }> }) {
+export default async function NewEstimatePage({ searchParams }: { searchParams: Promise<{ template?: string; clientId?: string }> }) {
   const sp = await searchParams;
   const templates = await db
     .select({
@@ -45,6 +45,7 @@ export default async function NewEstimatePage({ searchParams }: { searchParams: 
         clients={clients}
         buildingTypes={buildingTypes}
         initialTemplate={initialTemplate}
+        initialClientId={clients.some((c) => c.id === sp.clientId) ? sp.clientId! : ""}
       />
     </div>
   );

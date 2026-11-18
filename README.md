@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Brains Cad Brain
 
-## Getting Started
+Estimating, takeoffs, quotes and job management for builders and trades.
 
-First, run the development server:
+Lead → Estimate (plans & takeoffs, costings, specifications) → Quote (print or online acceptance)
+→ Job (budget, schedule, purchase orders, variations, invoices, cost tracking, timesheets, selections).
+
+## Run it
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run db:reset      # creates data/bcb.db with sample data
+npm run dev           # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Production: `npx next build && npx next start -p 3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tests
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run typecheck     # TypeScript
+npm test              # unit tests (vitest)
+# browser tests (real Chrome, headless) against a running server:
+BASE_URL=http://localhost:3000 npm run e2e
+```
 
-## Learn More
+`e2e/integration.e2e.mjs` crawls every page and fails on any 404/500 or console error;
+`e2e/workflow.e2e.mjs` walks the whole lead-to-paid-invoice workflow.
 
-To learn more about Next.js, take a look at the following resources:
+## Where things are
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Area | Route | Code |
+|---|---|---|
+| Dashboard, reminders | `/dashboard`, `/reminders` | `src/app/(app)/dashboard`, `reminders` |
+| Leads | `/leads` | `src/app/(app)/leads` |
+| Estimates, templates, versions | `/estimates` | `src/app/(app)/estimates` |
+| Plans & takeoffs | `/estimates/[id]/takeoffs` | `.../takeoffs`, `src/lib/geometry.ts` |
+| Costings | `/estimates/[id]/costings` | `.../costings`, `src/lib/calc.ts`, `src/lib/expr.ts` |
+| Specifications & quote, client acceptance | `/estimates/[id]/specifications`, `/quote`, `/q/[token]` | `src/components/quote` |
+| Catalogues & recipes | `/catalogues` | `src/app/(app)/catalogues` |
+| Jobs, schedule, costs, timesheets, selections | `/jobs`, `/schedule` | `src/app/(app)/jobs`, `src/lib/scheduling.ts`, `src/lib/job-finance.ts` |
+| Orders, variations, invoices | `/orders`, `/invoices`, job tabs | `src/lib/money-docs.ts` |
+| Clients, suppliers & trades | `/clients`, `/contacts` | `src/app/(app)/clients`, `contacts` |
+| Settings | `/settings` | `src/app/(app)/settings` |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Estimate maths lives only in `src/lib/calc.ts` (category → item → sub-item tree, quantity formulas
+with `[M1]` takeoff references and `[W10]` wastage, named markup lines, GST, PC/PS markup
+redistribution, rounding). Call `recalcEstimate(id)` after any change.
 
-## Deploy on Vercel
+Conventions for contributors (human or AI): `AGENTS.md`. Product spec: `docs/SPEC.md`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Data
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Local SQLite file `data/bcb.db` via Drizzle + libSQL. Set `DATABASE_URL` (and
+`DATABASE_AUTH_TOKEN`) to point at a hosted libSQL/Turso database for deployment.
+`jobs.contractValue` is the revised contract (inc GST, approved variations included).

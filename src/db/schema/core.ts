@@ -34,6 +34,9 @@ export const businessSettings = sqliteTable("business_settings", {
   variationNumberPrefix: text("variation_number_prefix").notNull().default("V"),
   nextVariationNumber: integer("next_variation_number").notNull().default(1),
   bankDetails: text("bank_details"),
+  /** Default quote cover letter / T&Cs for new quotes (null = built-in wording). Merge fields allowed. */
+  defaultCoverLetter: text("default_cover_letter"),
+  defaultTermsAndConditions: text("default_terms_and_conditions"),
   showDashboardQuickStart: integer("show_dashboard_quick_start", { mode: "boolean" }).notNull().default(true),
   showDashboardEstimateSummary: integer("show_dashboard_estimate_summary", { mode: "boolean" }).notNull().default(true),
   ...timestamps,

@@ -22,8 +22,8 @@ export async function getOrCreateQuoteOptions(estimateId: string): Promise<Quote
       estimateId,
       title: DEFAULT_QUOTE_TITLE,
       validDays: s.quoteValidDays ?? 30,
-      coverLetter: DEFAULT_COVER_LETTER,
-      termsAndConditions: DEFAULT_TERMS,
+      coverLetter: s.defaultCoverLetter || DEFAULT_COVER_LETTER,
+      termsAndConditions: s.defaultTermsAndConditions || DEFAULT_TERMS,
     })
     .onConflictDoNothing();
   const [created] = await db.select().from(schema.quoteOptions).where(eq(schema.quoteOptions.estimateId, estimateId));

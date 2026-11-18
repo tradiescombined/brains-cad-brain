@@ -20,11 +20,13 @@ export function NewEstimateForm({
   clients,
   buildingTypes,
   initialTemplate,
+  initialClientId = "",
 }: {
   templates: TemplateCard[];
   clients: ClientOption[];
   buildingTypes: string[];
   initialTemplate: string;
+  initialClientId?: string;
 }) {
   const [state, action] = useActionState(createEstimate, undefined);
   const [templateId, setTemplateId] = useState(initialTemplate);
@@ -73,7 +75,7 @@ export function NewEstimateForm({
           </Field>
           <div>
             <span className="mb-1 block text-xs font-medium text-ink-600">Client</span>
-            <ClientPicker clients={clients} error={fe.clientName} defaultName={v.clientName} defaultClientId={v.clientId} />
+            <ClientPicker clients={clients} error={fe.clientName} defaultName={v.clientName ?? clients.find((c) => c.id === initialClientId)?.name} defaultClientId={v.clientId ?? (initialClientId || null)} />
           </div>
         </div>
       </Card>

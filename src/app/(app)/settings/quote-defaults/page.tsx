@@ -4,6 +4,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui";
 import { getSettings } from "@/lib/settings";
 import { ActionForm, FieldError, FormFooter } from "../_components/ActionForm";
 import { saveQuoteDefaults } from "../actions";
+import { DEFAULT_COVER_LETTER, DEFAULT_TERMS } from "@/components/quote/defaults";
 
 export const metadata = { title: "Quote defaults · Settings" };
 
@@ -53,6 +54,24 @@ export default async function QuoteDefaultsPage() {
           <Field label="Bank details">
             <Textarea name="bankDetails" rows={4} defaultValue={s.bankDetails ?? ""} placeholder={"Account name: My Building Co\nBSB: 000-000\nAccount: 12345678"} className="font-mono" />
             <FieldError name="bankDetails" />
+          </Field>
+        </div>
+      </section>
+      <section className="rounded-lg border border-ink-200 bg-white shadow-xs">
+        <header className="border-b border-ink-100 px-4 py-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-500">Quote wording</h2>
+          <p className="mt-0.5 text-xs text-ink-500">
+            Used when a quote is prepared for the first time. Merge fields: [ClientName] [EstimateName] [EstimateNumber] [QuoteTotal] [ValidUntil] [BusinessName] [SiteAddress]. Leave blank for the built-in wording.
+          </p>
+        </header>
+        <div className="space-y-4 p-4">
+          <Field label="Default cover letter">
+            <Textarea name="defaultCoverLetter" rows={8} defaultValue={s.defaultCoverLetter ?? ""} placeholder={DEFAULT_COVER_LETTER} />
+            <FieldError name="defaultCoverLetter" />
+          </Field>
+          <Field label="Default terms & conditions" hint="Supports paragraphs, bullet lists (- item) and **bold**.">
+            <Textarea name="defaultTermsAndConditions" rows={12} defaultValue={s.defaultTermsAndConditions ?? ""} placeholder={DEFAULT_TERMS} />
+            <FieldError name="defaultTermsAndConditions" />
           </Field>
         </div>
       </section>

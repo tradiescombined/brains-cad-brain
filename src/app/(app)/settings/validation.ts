@@ -162,6 +162,8 @@ export const quoteDefaultsSchema = z.object({
   defaultInvoiceDueDays: intRange("Invoice due", 0, 365),
   defaultTaxRateId: z.string().trim().optional().transform((v) => v || null),
   bankDetails: optText(1000),
+  defaultCoverLetter: optText(10000),
+  defaultTermsAndConditions: optText(20000),
 });
 
 export const lookupNameSchema = z.string().trim().min(1, "Name can't be blank").max(80, "Keep it under 80 characters");
