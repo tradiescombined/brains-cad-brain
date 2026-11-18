@@ -1,4 +1,5 @@
 "use server";
+import { syncLeadWithEstimate } from "@/lib/estimates";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
@@ -112,6 +113,8 @@ export async function setEstimateStatus(fd: FormData) {
   if (!est || !status || status === est.status) return;
   const patch = statusPatch(status, await acceptedStatusName(), est.acceptedAt);
   await db.update(schema.estimates).set(patch).where(eq(schema.estimates.id, id));
+  await syncLeadWithEstimate(id);
+  revalidatePath("/leads", "layout");
   await logActivity("estimate", id, "status", `${est.number} status changed from ${est.status} to ${status}`);
   revalidateEstimate(id);
 }

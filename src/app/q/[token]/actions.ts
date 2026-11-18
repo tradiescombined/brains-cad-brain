@@ -1,4 +1,5 @@
 "use server";
+import { syncLeadWithEstimate } from "@/lib/estimates";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
@@ -23,6 +24,8 @@ export async function acceptQuote(token: string, _prev: AcceptState, fd: FormDat
   const accepted = statuses.find((s) => s.flag)?.name ?? statuses.find((s) => /accept/i.test(s.name))?.name ?? "Accepted";
   await db.update(schema.quoteOptions).set({ acceptanceSignatureName: name, acceptanceSignedAt: now }).where(eq(schema.quoteOptions.id, options.id));
   await db.update(schema.estimates).set({ status: accepted, acceptedAt: now }).where(eq(schema.estimates.id, estimate.id));
+  await syncLeadWithEstimate(estimate.id);
+  revalidatePath("/leads", "layout");
   await logActivity("estimate", estimate.id, "quote_accepted", `Quote ${estimate.number} accepted online by ${name}`);
   // No revalidation of /q/[token] here: the form swaps itself for a confirmation; a reload shows the accepted state.
   revalidatePath(`/estimates/${estimate.id}`, "layout");

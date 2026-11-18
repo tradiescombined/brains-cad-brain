@@ -58,3 +58,29 @@ export async function recalcEstimate(estimateId: string): Promise<CalcResult | n
     .where(eq(schema.estimates.id, estimateId));
   return r;
 }
+
+const LEAD_STAGE_ORDER = ["New", "Contacted", "Site visit", "Quoting", "Quote sent", "Won", "Lost"] as const;
+
+/**
+ * Keeps a linked lead's stage in step with its estimate:
+ *  - estimate in the accepted-flag status  → lead "Won" (probability 100)
+ *  - estimate sent (sentAt or status "Sent") → lead "Quote sent" if it was at an earlier stage
+ * Never moves a lead backwards, and never auto-marks "Lost" (that needs a reason).
+ * Call after any estimate status / sent change.
+ */
+export async function syncLeadWithEstimate(estimateId: string): Promise<void> {
+  const [est] = await db.select().from(schema.estimates).where(eq(schema.estimates.id, estimateId));
+  if (!est?.leadId) return;
+  const [lead] = await db.select().from(schema.leads).where(eq(schema.leads.id, est.leadId));
+  if (!lead || lead.stage === "Won" || lead.stage === "Lost") return;
+  const statuses = await db.select().from(schema.lookups).where(eq(schema.lookups.kind, "estimate_status"));
+  const accepted = statuses.some((s) => s.flag && s.name === est.status);
+  const rank = (s: string) => LEAD_STAGE_ORDER.indexOf(s as (typeof LEAD_STAGE_ORDER)[number]);
+  if (accepted) {
+    await db.update(schema.leads).set({ stage: "Won", probability: 100, lostReason: null }).where(eq(schema.leads.id, lead.id));
+    await db.insert(schema.activity).values({ entityType: "lead", entityId: lead.id, action: "won", summary: `Lead ${lead.number ?? ""} won: quote ${est.number} accepted`.replace("  ", " ") });
+  } else if ((est.sentAt || est.status.toLowerCase() === "sent") && rank(lead.stage) < rank("Quote sent")) {
+    await db.update(schema.leads).set({ stage: "Quote sent" }).where(eq(schema.leads.id, lead.id));
+    await db.insert(schema.activity).values({ entityType: "lead", entityId: lead.id, action: "stage", summary: `Lead ${lead.number ?? ""} moved to Quote sent (${est.number})`.replace("  ", " ") });
+  }
+}

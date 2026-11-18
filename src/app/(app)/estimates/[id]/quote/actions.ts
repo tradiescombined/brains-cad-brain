@@ -1,4 +1,5 @@
 "use server";
+import { syncLeadWithEstimate } from "@/lib/estimates";
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
@@ -48,6 +49,8 @@ export async function markAsSent(fd: FormData) {
     .update(schema.estimates)
     .set({ sentAt: new Date().toISOString(), ...(sent && !isAccepted ? { status: sent.name } : {}) })
     .where(eq(schema.estimates.id, id));
+  await syncLeadWithEstimate(id);
+  revalidatePath("/leads", "layout");
   await logActivity("estimate", id, "quote_sent", `Quote ${est.number} marked as sent`);
   paths(id);
 }
