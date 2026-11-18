@@ -33,7 +33,7 @@ function spec(id: string, parentId: string | null): SpecRow {
   return { id, estimateId: "src", parentId, sortOrder: 0, heading: `H ${id}`, body: null, ...ts };
 }
 function plan(id: string): PlanRow {
-  return { id, estimateId: "src", label: id, description: null, sortOrder: 0, imageDataUrl: "data:x", imageWidth: 10, imageHeight: 10, scaleX: 1, scaleY: 1, scaleUnit: "mm", ...ts };
+  return { id, estimateId: "src", label: id, description: null, sortOrder: 0, imageDataUrl: "data:x", imageWidth: 10, imageHeight: 10, scaleX: 1, scaleY: 1, scaleUnit: "mm", sourceDpi: null, ...ts };
 }
 function meas(id: string, planId: string): MeasurementRow {
   return { id, estimateId: "src", planId, code: id.toUpperCase(), description: id, shape: "line", points: "[]", colour: "#000", unit: "m", pitchDegrees: 0, depthMm: 0, heightMm: 0, isNegative: false, value: 5, ...ts };
