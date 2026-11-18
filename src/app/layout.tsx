@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: "Estimating, takeoffs, quotes and job management for builders and trades.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en-AU" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full font-sans">{children}</body>

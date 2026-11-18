@@ -32,11 +32,11 @@ export function ConfirmButton({ children, confirmText = "Are you sure?", classNa
     return () => clearTimeout(t);
   }, [armed]);
   return armed ? (
-    <button type="submit" className={cx("rounded-md border border-red-300 bg-red-600 px-3 py-1.5 text-sm font-medium text-white", className)}>
+    <button key="confirm" type="submit" className={cx("rounded-md border border-red-300 bg-red-600 px-3 py-1.5 text-sm font-medium text-white", className)}>
       {confirmText}
     </button>
   ) : (
-    <button type="button" onClick={() => setArmed(true)} className={cx("rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50", className)}>
+    <button key="arm" type="button" onClick={(e) => { e.preventDefault(); setArmed(true); }} className={cx("rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50", className)}>
       {children}
     </button>
   );
