@@ -33,6 +33,15 @@ await db.execute({
   sql: "insert into catalogue_recipe_lines (id, recipe_item_id, component_item_id, description, cost_type, uom, quantity_expr, unit_cost, sort_order) values (?,?,?,?,?,?,?,?,?), (?,?,?,?,?,?,?,?,?)",
   args: [uid(), recipeId, null, "Plasterboard sheet", "Material", "sheet", "0.5", 20, 1, uid(), recipeId, null, "Fixing labour", "Labour", "hr", "0.25", 80, 2],
 });
+// a categorised plain item for the catalogue panel drill-down
+const panelCatId = uid();
+const battenId = uid();
+const battenName = `E2E panel batten ${tag}`;
+await db.execute({ sql: "insert into catalogue_categories (id, catalogue_id, parent_id, name, sort_order) values (?,?,?,?,?)", args: [panelCatId, catalogue.id, null, "E2E battens", 1] });
+await db.execute({
+  sql: "insert into catalogue_items (id, catalogue_id, category_id, item_code, description, cost_type, uom, unit_cost, is_recipe, archived, created_at, updated_at) values (?,?,?,?,?,?,?,?,?,?,?,?)",
+  args: [battenId, catalogue.id, panelCatId, `PB-${tag}`, battenName, "Material", "lm", 5, 0, 0, new Date().toISOString(), new Date().toISOString()],
+});
 // estimate with no rows for the empty state
 const emptyId = uid();
 await db.execute({
@@ -246,6 +255,105 @@ await check((await page.getByTestId("sum-cost").textContent()).trim() === money(
 await check((await page.getByTestId("sum-tax").textContent()).trim() === money(Number(est2.tax_total)), "summary tax equals stored");
 await check((await row("E2E noggings")).getByLabel("Markup percent").inputValue().then((v) => v === "30%"), "persisted values reload into grid");
 
+console.log("Totals bar equals summary");
+for (const [bar, sum] of [["bar-cost", "sum-cost"], ["bar-markup", "sum-markup"], ["bar-subtotal", "sum-subtotal"], ["bar-tax", "sum-tax"], ["bar-quote", "sum-quote"]]) {
+  const b = (await page.getByTestId(bar).textContent()).trim();
+  await check(b === (await page.getByTestId(sum).textContent()).trim(), `${bar} = ${sum} (${b})`);
+}
+const bar = page.getByRole("region", { name: "Estimate totals bar" });
+const allVisible = (loc, texts) => Promise.all(texts.map((t) => loc.getByText(t, { exact: true }).isVisible())).then((v) => v.every(Boolean));
+await check(allVisible(bar, ["Sub total (ex)", "Markup", "Total ex GST", "GST", "Quote total"]), "totals bar labels");
+
+console.log("Catalogue panel: open state remembered");
+const panel = page.getByRole("complementary", { name: "Catalogue panel" });
+await check(panel.isVisible(), "panel docked open by default on wide screens");
+await panel.getByRole("button", { name: "Close catalogue panel" }).click();
+await page.reload();
+await saved();
+await check(panel.isHidden(), "closed state remembered after reload");
+await page.getByRole("button", { name: "Open catalogues panel" }).click();
+await check(panel.isVisible(), "vertical tab re-opens the panel");
+await page.reload();
+await saved();
+await check(panel.isVisible(), "open state remembered after reload");
+
+console.log("Catalogue panel: drill-down + quick add");
+await panel.getByRole("button", { name: `E2E costings catalogue ${tag}` }).click();
+await check(panel.getByRole("navigation", { name: "Catalogue breadcrumb" }).getByText(`E2E costings catalogue ${tag}`).isVisible(), "breadcrumb shows catalogue");
+const shows = (loc) => loc.waitFor().then(() => true);
+await check(shows(page.getByTestId(`panel-item-${recipeId}`)), "uncategorised recipe listed at catalogue root");
+await panel.getByRole("button", { name: "E2E battens" }).click();
+const batten = page.getByTestId(`panel-item-${battenId}`);
+await check(shows(batten), "category drill-down lists its items");
+await check(allVisible(batten, [`PB-${tag}`, "$5.00", "per lm", "Material"]), "item row shows code, unit cost, UOM, cost type");
+await panel.getByRole("navigation", { name: "Catalogue breadcrumb" }).getByRole("button", { name: `E2E costings catalogue ${tag}` }).click();
+await check(panel.getByRole("button", { name: "E2E battens" }).isVisible(), "breadcrumb navigates back up");
+await panel.getByRole("button", { name: "E2E battens" }).click();
+await panel.getByLabel("Add items to").selectOption({ label: "4. E2E Carpentry" });
+await batten.getByRole("button", { name: `Add ${battenName}` }).click();
+await batten.getByLabel(`Quantity of ${battenName}`).fill("3");
+await batten.getByRole("button", { name: "Add to estimate" }).click();
+await settle();
+let pb = await all("select parent_id, quantity, total, catalogue_item_id from estimate_items where estimate_id = ? and description = ?", [E, battenName]);
+await check(pb.length === 1 && pb[0].parent_id === catId && Number(pb[0].quantity) === 3 && Number(pb[0].total) === 15 && pb[0].catalogue_item_id === battenId, "+ adds item with typed qty into the target category");
+
+console.log("Catalogue panel: drag an item onto a category");
+await batten.dragTo(page.getByTestId(`row-${demoId}`));
+await settle();
+pb = await one("select parent_id, quantity, sort_order from estimate_items where estimate_id = ? and description = ? and parent_id = ?", [E, battenName, demoId]);
+const demoKids = Number((await one("select count(*) c from estimate_items where parent_id = ?", [demoId])).c);
+await check(pb && Number(pb.quantity) === 1 && Number(pb.sort_order) === demoKids, "dropped item appended to the category with qty 1");
+
+console.log("Catalogue panel: recipe from the Recipes tab");
+await panel.getByRole("tab", { name: "Recipes" }).click();
+await panel.getByLabel("Search items").fill(recipeName);
+const recItem = page.getByTestId(`panel-item-${recipeId}`);
+await check(shows(recItem.getByText("Recipe · 2 parts")), "recipes tab lists the recipe");
+await recItem.getByRole("button", { name: `Add ${recipeName}` }).click();
+await recItem.getByLabel(`Quantity of ${recipeName}`).fill("2");
+await recItem.getByLabel(`Quantity of ${recipeName}`).press("Enter");
+await settle();
+const rec2 = await one("select id, parent_id, total from estimate_items where description = ? and estimate_id = ? and quantity = 2", [recipeName, E]);
+const subs2 = await all("select description, quantity_expr from estimate_items where parent_id = ? order by sort_order", [rec2?.id ?? ""]);
+await check(rec2 && rec2.parent_id === catId && Number(rec2.total) === 60, "recipe parent inserted (2 × $30)");
+await check(subs2.length === 2 && subs2[1].description === "Fixing labour" && subs2[1].quantity_expr === "0.25", "recipe parts inserted as sub-items");
+await panel.getByRole("tab", { name: "Catalogues" }).click();
+
+console.log("Drag-reorder rows");
+const studRowId = await rowId("E2E stud wall");
+const nogId = await rowId("E2E noggings");
+const so = async (id) => one("select parent_id, sort_order from estimate_items where id = ?", [id]);
+const studBefore = await so(studRowId);
+await page.getByTestId(`drag-${nogId}`).dragTo(page.getByTestId(`row-${studRowId}`), { targetPosition: { x: 300, y: 3 } });
+await settle();
+let nogNow = await so(nogId);
+await check(nogNow.parent_id === catId && Number(nogNow.sort_order) === Number(studBefore.sort_order) && Number((await so(studRowId)).sort_order) === Number(studBefore.sort_order) + 1, "row dropped above another row");
+// top edge of the E2E Carpentry header = end of the category above it
+const prevCat = (await one("select id from estimate_items where estimate_id = ? and kind = 'category' and sort_order = 3", [E])).id;
+await page.getByTestId(`drag-${nogId}`).dragTo(page.getByTestId(`row-${catId}`), { targetPosition: { x: 300, y: 2 } });
+await settle();
+nogNow = await so(nogId);
+const prevKids = Number((await one("select count(*) c from estimate_items where parent_id = ?", [prevCat])).c);
+await check(nogNow.parent_id === prevCat && Number(nogNow.sort_order) === prevKids, "row dragged to the end of the category above");
+const screwsId = await rowId("E2E sub screws"); // a sub-item of "E2E stud wall"
+await page.getByTestId(`drag-${rec2.id}`).dragTo(page.getByTestId(`row-${screwsId}`));
+await settle();
+await check((await so(rec2.id)).parent_id === catId, "recipe (has sub-items) cannot be dropped at sub-item depth");
+
+console.log("Responsive: drawer at phone width");
+await page.setViewportSize({ width: 390, height: 844 });
+await page.reload();
+await saved();
+await check(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "no horizontal page scroll at 390px");
+await check(panel.isHidden(), "panel starts closed as a drawer");
+await page.getByRole("button", { name: "Catalogue panel" }).click();
+await check(panel.isVisible(), "drawer opens from the toolbar");
+await check(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "no horizontal page scroll with the drawer open");
+await panel.getByRole("button", { name: "Close catalogue panel" }).click();
+await check(panel.isHidden(), "drawer closes");
+await page.setViewportSize({ width: 1400, height: 900 });
+await page.getByRole("button", { name: "Catalogue panel" }).click(); // leave it open for the next run
+
 console.log("Delete test category");
 m = await openMenu("E2E Carpentry");
 await m.getByRole("menuitem", { name: /^Delete/ }).click();
@@ -269,5 +377,6 @@ await purgeEstimate(emptyId);
 await purgeEstimate(E);
 await db.execute({ sql: "delete from catalogue_recipe_lines where recipe_item_id = ?", args: [recipeId] });
 await db.execute({ sql: "delete from catalogue_items where catalogue_id = ?", args: [catalogue.id] });
+await db.execute({ sql: "delete from catalogue_categories where catalogue_id = ?", args: [catalogue.id] });
 await db.execute({ sql: "delete from catalogues where id = ?", args: [catalogue.id] });
 await done();

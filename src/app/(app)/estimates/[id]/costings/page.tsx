@@ -26,7 +26,12 @@ export default async function CostingsPage({ params }: { params: Promise<{ id: s
       .orderBy(asc(schema.contacts.name)),
     db.select({ id: schema.catalogues.id, name: schema.catalogues.name, status: schema.catalogues.status }).from(schema.catalogues).orderBy(asc(schema.catalogues.name)),
     db
-      .select({ id: schema.catalogueCategories.id, catalogueId: schema.catalogueCategories.catalogueId, name: schema.catalogueCategories.name })
+      .select({
+        id: schema.catalogueCategories.id,
+        catalogueId: schema.catalogueCategories.catalogueId,
+        parentId: schema.catalogueCategories.parentId,
+        name: schema.catalogueCategories.name,
+      })
       .from(schema.catalogueCategories)
       .orderBy(asc(schema.catalogueCategories.sortOrder), asc(schema.catalogueCategories.name)),
     getTaxRates(),

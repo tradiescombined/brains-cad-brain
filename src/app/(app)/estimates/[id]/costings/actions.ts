@@ -6,6 +6,8 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { recalcEstimate } from "@/lib/estimates";
 import { catalogueToRows, subtreeIds, validateTree, childrenOf } from "@/lib/costings-tree";
+import { insertPlan } from "@/lib/costings-dnd";
+import { searchCatalogueItems } from "@/app/(app)/catalogues/search";
 import type { EstimateItem } from "@/db/schema";
 import type { MarkupLine } from "@/lib/calc";
 import { getTaxRates } from "@/lib/settings";
@@ -216,14 +218,23 @@ export async function searchCatalogue(input: { q?: string; catalogueId?: string;
 
 const addSchema = z.object({
   categoryId: z.string().max(64),
+  /** 0-based position among the category's items; omitted = append. */
+  index: z.number().int().min(0).max(100000).optional(),
   picks: z
     .array(z.object({ id: z.string().min(1).max(64), quantity: finite.refine((n) => n >= 0 && n < 1e9, "Quantity must be 0 or more") }))
     .min(1, "Select at least one item")
     .max(200),
 });
 
-/** Insert catalogue items into a category; recipes expand into a parent with sub-items. */
-export async function addCatalogueItems(estimateId: string, input: { categoryId: string; picks: { id: string; quantity: number }[] }): Promise<ActionResult> {
+/**
+ * Insert catalogue items into a category (at `index`, or appended); recipes expand into a parent
+ * with sub-items. Shared by the "Add from catalogue" dialog and the docked catalogue panel
+ * (quick-add "+" and drag-and-drop).
+ */
+export async function addCatalogueItems(
+  estimateId: string,
+  input: { categoryId: string; index?: number; picks: { id: string; quantity: number }[] },
+): Promise<ActionResult> {
   const denial = await denied("estimates.edit");
   if (denial) return { ok: false, error: denial };
   const parsed = addSchema.safeParse(input);
@@ -250,16 +261,69 @@ export async function addCatalogueItems(estimateId: string, input: { categoryId:
     .filter((p) => byId.has(p.id))
     .map((p) => ({ item: byId.get(p.id)!, quantity: p.quantity, lines: lines.filter((l) => l.recipeItemId === p.id) }));
   if (!picks.length) return { ok: false, error: "Those catalogue items no longer exist" };
-  const start = childrenOf(current, categoryId).reduce((m, r) => Math.max(m, r.sortOrder), 0);
-  const rows = catalogueToRows(picks, categoryId, start);
+  const plan = insertPlan(childrenOf(current, categoryId), parsed.data.index ?? null, picks.length);
+  const rows = catalogueToRows(picks, categoryId, plan.startOrder);
   const taxDefaults = taxableDefaults(await getTaxRates());
-  await db.insert(schema.estimateItems).values(
-    rows.map((r) => ({
-      ...r,
-      estimateId,
-      costType: r.costType as (typeof COST_TYPES)[number],
-      taxable: defaultTaxable(taxDefaults, r.costType),
-    })),
-  );
+  await db.transaction(async (tx) => {
+    for (const u of plan.updates) {
+      await tx.update(schema.estimateItems).set({ sortOrder: u.sortOrder }).where(and(eq(schema.estimateItems.id, u.id), eq(schema.estimateItems.estimateId, estimateId)));
+    }
+    await tx.insert(schema.estimateItems).values(
+      rows.map((r) => ({
+        ...r,
+        estimateId,
+        costType: r.costType as (typeof COST_TYPES)[number],
+        taxable: defaultTaxable(taxDefaults, r.costType),
+      })),
+    );
+  });
   return finish(estimateId);
+}
+
+export type PanelItem = {
+  id: string;
+  catalogueId: string;
+  catalogueName: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  itemCode: string | null;
+  description: string;
+  costType: string;
+  uom: string;
+  unitCost: number;
+  isRecipe: boolean;
+  lineCount: number;
+};
+
+const browseSchema = z.object({
+  q: z.string().max(100).default(""),
+  catalogueId: z.string().max(64).default(""),
+  categoryId: z.string().max(64).default(""),
+  recipesOnly: z.boolean().default(false),
+});
+
+/**
+ * Catalogue panel browse/search (Catalogues and Recipes tabs) via the shared `searchCatalogueItems`.
+ * Without a catalogue, archived catalogues are left out; `categoryId: "none"` = uncategorised items.
+ */
+export async function browseCatalogue(input: {
+  q?: string;
+  catalogueId?: string;
+  categoryId?: string;
+  recipesOnly?: boolean;
+}): Promise<{ ok: true; items: PanelItem[] } | { ok: false; error: string }> {
+  const denial = await denied("estimates.edit");
+  if (denial) return { ok: false, error: denial };
+  const parsed = browseSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
+  const p = parsed.data;
+  const found = await searchCatalogueItems({
+    q: p.q, catalogueId: p.catalogueId || null, categoryId: p.categoryId || null, limit: p.recipesOnly ? 500 : 200,
+  });
+  const items = (p.recipesOnly ? found.filter((r) => r.isRecipe) : found).slice(0, 200).map((r) => ({
+    id: r.id, catalogueId: r.catalogueId, catalogueName: r.catalogueName, categoryId: r.categoryId, categoryName: r.categoryName,
+    itemCode: r.itemCode, description: r.description, costType: r.costType, uom: r.uom, unitCost: r.unitCost, isRecipe: r.isRecipe,
+    lineCount: r.recipeLines.length,
+  }));
+  return { ok: true, items };
 }
