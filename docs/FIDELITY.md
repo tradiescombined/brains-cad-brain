@@ -80,7 +80,7 @@ plan; they are covered by our Jobs & money modules (see `docs/SPEC.md`) and not 
 | Header: Prepare quote | "Prepare quote" | Match | |
 | Header: AI assistant | — | Out of scope | AI |
 | Tabs: Details, Plans & Takeoffs, Costings, Specifications | Same tabs + Quote | Match | |
-| Estimate-level "Schedule" tab | Job schedule (`/jobs/[id]/schedule`) | Partial | Pre-job schedule on the estimate not offered |
+| Estimate-level "Schedule" tab | `/estimates/[id]/schedule` (`estimate_tasks`) | Match | Tasks, start date, duration, assignee, dependencies, Gantt; generate from costing categories; "Set start date" shifts all; optional schedule summary on the quote; copied into the job schedule on job creation (ids/links remapped, offset to the job start) |
 | Reference number | `estimates.number` | Match | |
 | Name / description | `estimates.name` | Match | |
 | Created date | `datePrepared` | Match | |
@@ -115,7 +115,7 @@ plan; they are covered by our Jobs & money modules (see `docs/SPEC.md`) and not 
 | Status Incomplete / Complete | `status` | Match | |
 | Notes | `notes` | Match | |
 | Show in specifications | `showInSpecification` | Match | |
-| Show in schedule | — | Missing | No estimate schedule (see above) |
+| Show in schedule | — | Missing | Estimate schedule exists (see above) but tasks are per category / manual, not flagged per costing item |
 | Item specifications text | `notes` + spec sections | Partial | No separate per-item spec text |
 | Supplier (contact) | `supplierId` | Match | |
 | Item code | `itemCode` | Match | |
@@ -317,7 +317,7 @@ plan; they are covered by our Jobs & money modules (see `docs/SPEC.md`) and not 
 
 1. Use the per-cost-type **expense** defaults and the supplier's GST registration when raising
    purchase orders and recording bills (data is now in place).
-2. Estimate-level **schedule** tab and "show in schedule" flag on costing items.
+2. "Show in schedule" flag on costing items (the estimate schedule tab itself now exists).
 3. Catalogue item **alternative UOMs / order increments / min order qty** and manufacturer fields.
 4. Separate **home / work phone** and multiple contact people for suppliers.
 5. "Use existing letterhead" print option (blank top margin) and default **PO terms** in settings.

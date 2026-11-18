@@ -71,6 +71,16 @@ export interface QuoteModel {
   specs: SpecNode[];
   inclusions: { id: string; description: string; quantity: number; uom: string | null; notes: string | null }[];
   acceptance: { name: string; signedAt: string } | null;
+  /** Estimate schedule summary (tasks in order, working-day dates). */
+  schedule?: QuoteScheduleTask[];
+}
+
+export interface QuoteScheduleTask {
+  id: string;
+  name: string;
+  start: string; // YYYY-MM-DD
+  finish: string; // YYYY-MM-DD
+  durationDays: number;
 }
 
 /** The print/letter options (subset of the quote_options row the document needs). */
@@ -92,6 +102,7 @@ export interface QuoteOptionValues {
   printSpecifications: boolean;
   printSpecificationNumbers: boolean;
   printInitialsArea: boolean;
+  printSchedule: boolean;
   showMarkup: boolean;
   pcPrintOption: string;
   psPrintOption: string;
@@ -100,7 +111,7 @@ export interface QuoteOptionValues {
 export const BOOLEAN_OPTIONS = [
   "printBusinessInfo", "printLogo", "printCategories", "printCategoryTotals", "categoryTotalsIncludeTax", "printItems",
   "printQuantities", "printUnitMeasures", "printItemTotals", "printZeroDollarItems", "printSpecifications",
-  "printSpecificationNumbers", "printInitialsArea", "showMarkup",
+  "printSpecificationNumbers", "printInitialsArea", "printSchedule", "showMarkup",
 ] as const satisfies readonly (keyof QuoteOptionValues)[];
 
 export const ALLOWANCE_PRINT_OPTIONS: { value: AllowancePrint; label: string }[] = [

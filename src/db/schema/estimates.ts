@@ -136,6 +136,8 @@ export const quoteOptions = sqliteTable("quote_options", {
   printSpecifications: integer("print_specifications", { mode: "boolean" }).notNull().default(true),
   printSpecificationNumbers: integer("print_specification_numbers", { mode: "boolean" }).notNull().default(true),
   printInitialsArea: integer("print_initials_area", { mode: "boolean" }).notNull().default(false),
+  /** Print a task list with dates from the estimate schedule. */
+  printSchedule: integer("print_schedule", { mode: "boolean" }).notNull().default(false),
   showMarkup: integer("show_markup", { mode: "boolean" }).notNull().default(false),
   /** How PC / PS allowances print: hide | show_total | show_items */
   pcPrintOption: text("pc_print_option").notNull().default("show_total"),
@@ -144,6 +146,25 @@ export const quoteOptions = sqliteTable("quote_options", {
   acceptanceSignedAt: text("acceptance_signed_at"),
   /** Public share token for the client-facing online quote. */
   shareToken: text("share_token"),
+  ...timestamps,
+});
+
+/**
+ * Pre-job schedule planned at quote stage (mirrors job_tasks, minus progress). Copied into
+ * job_tasks (ids + dependencies remapped) when a job is created from the estimate.
+ */
+export const estimateTasks = sqliteTable("estimate_tasks", {
+  id: id(),
+  estimateId: text("estimate_id").notNull(),
+  name: text("name").notNull(),
+  startDate: text("start_date").notNull(),
+  durationDays: integer("duration_days").notNull().default(1),
+  /** JSON array of predecessor task ids (finish-to-start). */
+  dependsOn: text("depends_on").notNull().default("[]"),
+  assigneeContactId: text("assignee_contact_id"),
+  colour: text("colour"),
+  notes: text("notes"),
+  sortOrder: integer("sort_order").notNull().default(0),
   ...timestamps,
 });
 

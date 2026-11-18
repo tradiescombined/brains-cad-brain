@@ -6,7 +6,7 @@ import { SubmitButton } from "@/components/ui/client";
 import { cx, money } from "@/lib/format";
 import { ActionForm, type FormAction } from "../../schedule/_lib/client";
 
-type Est = { id: string; number: string; name: string; status: string; quoteTotal: number; clientName: string | null; accepted: boolean; hasJob: boolean };
+type Est = { id: string; number: string; name: string; status: string; quoteTotal: number; clientName: string | null; accepted: boolean; hasJob: boolean; scheduleCount: number };
 
 export function NewJobForms({
   mode: initialMode,
@@ -70,10 +70,19 @@ export function NewJobForms({
                 {est.hasJob && <p className="col-span-full text-xs text-red-700">This estimate already has a job.</p>}
               </div>
             )}
-            <Field label="Start date" hint="Used for the starter schedule. Weekends roll to Monday.">
+            <Field label="Start date" hint={est?.scheduleCount ? "The estimate schedule is moved so its first task starts on this date. Weekends roll to Monday." : "Used for the starter schedule. Weekends roll to Monday."}>
               <Input type="date" name="startDate" defaultValue={defaultStart} className="w-48" />
             </Field>
-            <Checkbox name="starterSchedule" defaultChecked label={<>Create a starter schedule <span className="text-ink-500">— one task per costing category, run back to back</span></>} />
+            {est?.scheduleCount ? (
+              <Checkbox
+                key="copy"
+                name="starterSchedule"
+                defaultChecked
+                label={<>Copy the estimate schedule <span className="text-ink-500">— {est.scheduleCount} task{est.scheduleCount === 1 ? "" : "s"} with their links, assignees and durations</span></>}
+              />
+            ) : (
+              <Checkbox key="starter" name="starterSchedule" defaultChecked label={<>Create a starter schedule <span className="text-ink-500">— one task per costing category, run back to back</span></>} />
+            )}
             <p className="text-xs text-ink-500">Every costing line becomes a budget line grouped by its category, and the quote total becomes the contract value.</p>
             <div className="flex justify-end gap-2 border-t border-ink-100 pt-4">
               <Link href="/jobs" className="rounded-md px-3 py-1.5 text-sm text-ink-600 hover:bg-ink-100">Cancel</Link>

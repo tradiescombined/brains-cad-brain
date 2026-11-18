@@ -5,13 +5,15 @@
  * template, and capturing / restoring estimate versions. The DB orchestration lives in
  * `src/app/(app)/estimates/_components/estimate-db.ts`.
  */
-import type { estimates, estimateItems, specifications, quoteOptions } from "../db/schema/estimates";
+import type { estimates, estimateItems, specifications, quoteOptions, estimateTasks } from "../db/schema/estimates";
+import { parseDependsOn, remapTaskIds } from "./scheduling";
 import type { plans, measurements } from "../db/schema/takeoff";
 
 export type EstimateRow = typeof estimates.$inferSelect;
 export type ItemRow = typeof estimateItems.$inferSelect;
 export type SpecRow = typeof specifications.$inferSelect;
 export type QuoteOptionsRow = typeof quoteOptions.$inferSelect;
+export type TaskRow = typeof estimateTasks.$inferSelect;
 export type PlanRow = typeof plans.$inferSelect;
 export type MeasurementRow = typeof measurements.$inferSelect;
 
@@ -47,6 +49,8 @@ export interface EstimateGraph {
   plans: PlanRow[];
   measurements: MeasurementRow[];
   quoteOptions: QuoteOptionsRow | null;
+  /** Estimate schedule tasks. */
+  tasks: TaskRow[];
 }
 
 export interface CopiedGraph {
@@ -55,6 +59,13 @@ export interface CopiedGraph {
   plans: Omit<PlanRow, "createdAt" | "updatedAt">[];
   measurements: Omit<MeasurementRow, "createdAt" | "updatedAt">[];
   quoteOptions: Omit<QuoteOptionsRow, "createdAt" | "updatedAt"> | null;
+  tasks: Omit<TaskRow, "createdAt" | "updatedAt">[];
+}
+
+/** Fresh ids for schedule tasks with `dependsOn` (JSON) rewritten to the new ids. */
+export function remapTasks<T extends { id: string; dependsOn: string }>(rows: T[], gen: IdGen = uuid): T[] {
+  const parsed = rows.map((r) => ({ ...r, dependsOn: parseDependsOn(r.dependsOn) }));
+  return remapTaskIds(parsed, gen).tasks.map((t) => ({ ...t, dependsOn: JSON.stringify(t.dependsOn) }) as unknown as T);
 }
 
 /**
@@ -62,6 +73,7 @@ export interface CopiedGraph {
  * - items & specifications keep their tree shape via id remapping
  * - measurements are re-pointed at the copied plans; items' measurementId follows
  * - quote options are copied without the share token or any client acceptance
+ * - schedule tasks get fresh ids; dependency links are remapped to the copied tasks
  */
 export function copyEstimateGraph(src: EstimateGraph, targetEstimateId: string, gen: IdGen = uuid): CopiedGraph {
   const planMap = new Map<string, string>();
@@ -99,7 +111,9 @@ export function copyEstimateGraph(src: EstimateGraph, targetEstimateId: string, 
       }
     : null;
 
-  return { items, specifications: specs, plans: newPlans, measurements: newMeasurements, quoteOptions: qo };
+  const tasks = remapTasks(src.tasks.map(stripTimestamps), gen).map((t) => ({ ...t, estimateId: targetEstimateId }));
+
+  return { items, specifications: specs, plans: newPlans, measurements: newMeasurements, quoteOptions: qo, tasks };
 }
 
 /* ----------------------------------------------------------------------------------------- */
@@ -114,10 +128,12 @@ export interface EstimateSnapshot {
   estimate: EstimateRow;
   items: ItemRow[];
   specifications: SpecRow[];
+  /** Schedule tasks. Absent in snapshots taken before the estimate schedule existed. */
+  tasks?: TaskRow[];
 }
 
-export function buildSnapshot(estimate: EstimateRow, items: ItemRow[], specs: SpecRow[], now = new Date()): EstimateSnapshot {
-  return { format: SNAPSHOT_FORMAT, capturedAt: now.toISOString(), estimate, items, specifications: specs };
+export function buildSnapshot(estimate: EstimateRow, items: ItemRow[], specs: SpecRow[], now = new Date(), tasks?: TaskRow[]): EstimateSnapshot {
+  return { format: SNAPSHOT_FORMAT, capturedAt: now.toISOString(), estimate, items, specifications: specs, ...(tasks ? { tasks } : {}) };
 }
 
 /** Parses and sanity-checks a stored snapshot. Returns null when it is unusable. */
@@ -131,6 +147,10 @@ export function parseSnapshot(json: string | null | undefined): EstimateSnapshot
     if (!Array.isArray(v.items) || !Array.isArray(v.specifications)) return null;
     for (const i of v.items) if (!i || typeof i.id !== "string" || typeof i.estimateId !== "string") return null;
     for (const s of v.specifications) if (!s || typeof s.id !== "string" || typeof s.heading !== "string") return null;
+    if (v.tasks !== undefined) {
+      if (!Array.isArray(v.tasks)) return null;
+      for (const t of v.tasks) if (!t || typeof t.id !== "string" || typeof t.name !== "string" || typeof t.startDate !== "string") return null;
+    }
     return v as EstimateSnapshot;
   } catch {
     return null;
@@ -143,6 +163,7 @@ export const RESTORED_ESTIMATE_FIELDS = ["markupLines", "taxRateId", "pcpsRedist
 /**
  * Rows to write when restoring `snap` onto `estimateId`.
  * Item and specification ids are kept so links from other records (orders, budgets) still resolve.
+ * `tasks` is null for snapshots without a schedule (the current schedule is then left alone).
  */
 export function restorePlan(snap: EstimateSnapshot, estimateId: string) {
   const items = snap.items.map((i) => ({ ...i, estimateId }));
@@ -151,7 +172,8 @@ export function restorePlan(snap: EstimateSnapshot, estimateId: string) {
   for (const f of RESTORED_ESTIMATE_FIELDS) {
     if (f in snap.estimate) (estimatePatch as Record<string, unknown>)[f] = snap.estimate[f];
   }
-  return { items, specifications, estimatePatch };
+  const tasks = snap.tasks ? snap.tasks.map((t) => ({ ...stripTimestamps(t), estimateId })) : null;
+  return { items, specifications, estimatePatch, tasks };
 }
 
 /** Splits rows into chunks so large inserts stay within SQLite's bound-variable limit. */
