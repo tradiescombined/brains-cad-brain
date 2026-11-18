@@ -7,6 +7,8 @@ export interface SpecNode {
   heading: string;
   body: string;
   children: SpecNode[];
+  /** Top-level only: linked costing category (estimate_items.id). Absent/null = custom section. */
+  categoryItemId?: string | null;
 }
 
 export interface SpecRow {
@@ -15,6 +17,7 @@ export interface SpecRow {
   sortOrder: number;
   heading: string;
   body: string | null;
+  categoryItemId?: string | null;
 }
 
 export const MAX_DEPTH = 2;
@@ -37,7 +40,7 @@ export function fromRows(rows: SpecRow[]): SpecNode[] {
   for (const r of sorted) {
     const t = top(r);
     if (t.id === r.id) {
-      const n = { id: r.id, heading: r.heading, body: r.body ?? "", children: [] };
+      const n: SpecNode = { id: r.id, heading: r.heading, body: r.body ?? "", children: [], ...(r.categoryItemId ? { categoryItemId: r.categoryItemId } : {}) };
       nodes.set(r.id, n);
       roots.push(n);
     }
@@ -53,8 +56,8 @@ export function fromRows(rows: SpecRow[]): SpecNode[] {
 export function toRows(nodes: SpecNode[]): SpecRow[] {
   const out: SpecRow[] = [];
   nodes.forEach((n, i) => {
-    out.push({ id: n.id, parentId: null, sortOrder: i, heading: n.heading, body: n.body || null });
-    n.children.forEach((c, j) => out.push({ id: c.id, parentId: n.id, sortOrder: j, heading: c.heading, body: c.body || null }));
+    out.push({ id: n.id, parentId: null, sortOrder: i, heading: n.heading, body: n.body || null, categoryItemId: n.categoryItemId ?? null });
+    n.children.forEach((c, j) => out.push({ id: c.id, parentId: n.id, sortOrder: j, heading: c.heading, body: c.body || null, categoryItemId: null }));
   });
   return out;
 }
@@ -96,7 +99,7 @@ export function addNode(nodes: SpecNode[], parentId: string | null, node: Omit<S
   return next;
 }
 
-export function updateNode(nodes: SpecNode[], id: string, patch: Partial<Pick<SpecNode, "heading" | "body">>): SpecNode[] {
+export function updateNode(nodes: SpecNode[], id: string, patch: Partial<Pick<SpecNode, "heading" | "body" | "categoryItemId">>): SpecNode[] {
   return nodes.map((n) =>
     n.id === id
       ? { ...n, ...patch }
@@ -127,10 +130,22 @@ export function moveNode(nodes: SpecNode[], id: string, dir: -1 | 1): SpecNode[]
   return next;
 }
 
-/** A top-level node without children can become the last clause of the section above it. */
+/** Moves a top-level section to `toIndex` (drag and drop). Out-of-range targets are clamped. */
+export function moveTopLevelTo(nodes: SpecNode[], id: string, toIndex: number): SpecNode[] {
+  const from = nodes.findIndex((n) => n.id === id);
+  if (from < 0) return nodes;
+  const to = Math.max(0, Math.min(nodes.length - 1, toIndex));
+  if (to === from) return nodes;
+  const next = clone(nodes);
+  const [n] = next.splice(from, 1);
+  next.splice(to, 0, n);
+  return next;
+}
+
+/** A top-level, unlinked node without children can become the last clause of the section above it. */
 export function canIndent(nodes: SpecNode[], id: string): boolean {
   const loc = locate(nodes, id);
-  return !!loc && loc.parent < 0 && loc.index > 0 && nodes[loc.index].children.length === 0;
+  return !!loc && loc.parent < 0 && loc.index > 0 && nodes[loc.index].children.length === 0 && !nodes[loc.index].categoryItemId;
 }
 
 export function indentNode(nodes: SpecNode[], id: string): SpecNode[] {
@@ -214,7 +229,8 @@ export function sanitizeTree(input: unknown, isValidId: (id: string) => boolean 
       if (!c) return null;
       children.push(c);
     }
-    return { id: o.id, heading: heading || "Untitled section", body, children };
+    const link = depth === 1 && typeof o.categoryItemId === "string" && o.categoryItemId && isValidId(o.categoryItemId) ? o.categoryItemId : null;
+    return { id: o.id, heading: heading || "Untitled section", body, children, ...(link ? { categoryItemId: link } : {}) };
   };
   const out: SpecNode[] = [];
   for (const v of input) {

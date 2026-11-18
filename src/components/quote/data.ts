@@ -1,11 +1,12 @@
 import "server-only";
 import { db, schema } from "@/db";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { calcLoaded, loadEstimate } from "@/lib/estimates";
 import { getSettings } from "@/lib/settings";
 import { joinAddress, quoteIssueDate } from "@/lib/merge-fields";
 import { todayIso } from "@/lib/format";
 import { fromRows } from "./spec-tree";
+import { costingOutline } from "./spec-costings";
 import { DEFAULT_COVER_LETTER, DEFAULT_TERMS, DEFAULT_QUOTE_TITLE } from "./defaults";
 import type { QuoteCategory, QuoteModel, QuoteOptionValues, QuoteLine, AllowanceKind } from "./model";
 
@@ -48,6 +49,25 @@ export async function loadSpecRows(estimateId: string) {
     .from(schema.specifications)
     .where(eq(schema.specifications.estimateId, estimateId))
     .orderBy(asc(schema.specifications.sortOrder));
+}
+
+/**
+ * Per-item specification details for an estimate, keyed by estimate item id. Without
+ * `withImages` the (large) image is left out (`hasImage` + `updatedAt` let callers link to it).
+ */
+export async function loadSpecItemDetails(estimateId: string, withImages = false) {
+  const t = schema.specItemDetails;
+  const rows = await db
+    .select({
+      estimateItemId: t.estimateItemId,
+      body: t.body,
+      updatedAt: t.updatedAt,
+      hasImage: sql<number>`${t.imageDataUrl} is not null`,
+      imageDataUrl: withImages ? t.imageDataUrl : sql<string | null>`null`,
+    })
+    .from(t)
+    .where(eq(t.estimateId, estimateId));
+  return new Map(rows.map((r) => [r.estimateItemId, { ...r, hasImage: !!r.hasImage }]));
 }
 
 /** Builds the serialisable document model for an estimate (numbers from the calc engine). */
@@ -148,10 +168,23 @@ export async function loadQuoteModel(estimateId: string, options?: QuoteOptionsR
     },
     specIntro: e.specificationIntro,
     specs: fromRows(specRows),
-    inclusions: l.items
-      .filter((i) => i.kind === "item" && i.showInSpecification)
-      .sort((a, b) => (r.order.indexOf(a.id) - r.order.indexOf(b.id)))
-      .map((i) => ({ id: i.id, description: i.description || "Untitled item", quantity: r.items[i.id]?.quantity ?? i.quantity, uom: i.uom, notes: i.notes })),
+    specItems: await (async () => {
+      const outline = costingOutline(l.items);
+      const details = await loadSpecItemDetails(estimateId, true);
+      return l.items
+        .filter((i) => i.kind === "item" && i.showInSpecification)
+        .sort((a, b) => (r.order.indexOf(a.id) - r.order.indexOf(b.id)))
+        .map((i) => ({
+          id: i.id,
+          categoryId: outline.categoryOf.get(i.id) ?? null,
+          description: i.description || "Untitled item",
+          quantity: r.items[i.id]?.quantity ?? i.quantity,
+          uom: i.uom,
+          notes: i.notes,
+          detail: details.get(i.id)?.body ?? null,
+          imageDataUrl: details.get(i.id)?.imageDataUrl ?? null,
+        }));
+    })(),
     acceptance: opts.acceptanceSignedAt && opts.acceptanceSignatureName ? { name: opts.acceptanceSignatureName, signedAt: opts.acceptanceSignedAt } : null,
   };
 }

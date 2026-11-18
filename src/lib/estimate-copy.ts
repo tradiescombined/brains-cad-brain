@@ -5,13 +5,14 @@
  * template, and capturing / restoring estimate versions. The DB orchestration lives in
  * `src/app/(app)/estimates/_components/estimate-db.ts`.
  */
-import type { estimates, estimateItems, specifications, quoteOptions } from "../db/schema/estimates";
+import type { estimates, estimateItems, specifications, quoteOptions, specItemDetails } from "../db/schema/estimates";
 import type { plans, measurements } from "../db/schema/takeoff";
 
 export type EstimateRow = typeof estimates.$inferSelect;
 export type ItemRow = typeof estimateItems.$inferSelect;
 export type SpecRow = typeof specifications.$inferSelect;
 export type QuoteOptionsRow = typeof quoteOptions.$inferSelect;
+export type SpecItemDetailRow = typeof specItemDetails.$inferSelect;
 export type PlanRow = typeof plans.$inferSelect;
 export type MeasurementRow = typeof measurements.$inferSelect;
 
@@ -47,6 +48,8 @@ export interface EstimateGraph {
   plans: PlanRow[];
   measurements: MeasurementRow[];
   quoteOptions: QuoteOptionsRow | null;
+  /** Per-item specification detail/images (optional for older callers). */
+  specItemDetails?: SpecItemDetailRow[];
 }
 
 export interface CopiedGraph {
@@ -55,6 +58,7 @@ export interface CopiedGraph {
   plans: Omit<PlanRow, "createdAt" | "updatedAt">[];
   measurements: Omit<MeasurementRow, "createdAt" | "updatedAt">[];
   quoteOptions: Omit<QuoteOptionsRow, "createdAt" | "updatedAt"> | null;
+  specItemDetails: Omit<SpecItemDetailRow, "createdAt" | "updatedAt">[];
 }
 
 /**
@@ -80,13 +84,23 @@ export function copyEstimateGraph(src: EstimateGraph, targetEstimateId: string, 
       return { ...stripTimestamps(m), id, estimateId: targetEstimateId, planId: planMap.get(m.planId)! };
     });
 
-  const items = remapTree(src.items, gen).rows.map((i) => ({
+  const { rows: remappedItems, idMap: itemMap } = remapTree(src.items, gen);
+  const items = remappedItems.map((i) => ({
     ...i,
     estimateId: targetEstimateId,
     measurementId: i.measurementId ? measurementMap.get(i.measurementId) ?? null : null,
   }));
 
-  const specs = remapTree(src.specifications, gen).rows.map((s) => ({ ...stripTimestamps(s), estimateId: targetEstimateId }));
+  // Linked sections follow their costing category to its new id.
+  const specs = remapTree(src.specifications, gen).rows.map((s) => ({
+    ...stripTimestamps(s),
+    estimateId: targetEstimateId,
+    categoryItemId: s.categoryItemId ? itemMap.get(s.categoryItemId) ?? null : null,
+  }));
+
+  const specItemDetails = (src.specItemDetails ?? [])
+    .filter((d) => itemMap.has(d.estimateItemId))
+    .map((d) => ({ ...stripTimestamps(d), id: gen(), estimateId: targetEstimateId, estimateItemId: itemMap.get(d.estimateItemId)! }));
 
   const qo = src.quoteOptions
     ? {
@@ -99,7 +113,7 @@ export function copyEstimateGraph(src: EstimateGraph, targetEstimateId: string, 
       }
     : null;
 
-  return { items, specifications: specs, plans: newPlans, measurements: newMeasurements, quoteOptions: qo };
+  return { items, specifications: specs, plans: newPlans, measurements: newMeasurements, quoteOptions: qo, specItemDetails };
 }
 
 /* ----------------------------------------------------------------------------------------- */

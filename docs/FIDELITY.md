@@ -114,9 +114,10 @@ plan; they are covered by our Jobs & money modules (see `docs/SPEC.md`) and not 
 | PC/PS markup redistribution (display) | `calc.ts` | Match | |
 | Status Incomplete / Complete | `status` | Match | |
 | Notes | `notes` | Match | |
-| Show in specifications | `showInSpecification` | Match | |
+| Show in specifications | `showInSpecification` (row menu in Costings, or include/remove on the Specifications tab) | Match | |
 | Show in schedule | — | Missing | No estimate schedule (see above) |
-| Item specifications text | `notes` + spec sections | Partial | No separate per-item spec text |
+| Item specifications text | ★ `spec_item_details` (detail text + image per item), shown under the item's costing-category section | Match | Falls back to `notes` when no detail |
+| Specifications tab by costing category | ★ Sections linked via `specifications.categoryItemId`; Sync with costings, Match costings order, drag/collapse, search, Presets (spec library), Export (print `/specifications/print` + Markdown) | Match | Custom sections keep their position |
 | Supplier (contact) | `supplierId` | Match | |
 | Item code | `itemCode` | Match | |
 | Catalogue link (ID_CostItem) | `catalogueItemId` | Match | |
@@ -277,7 +278,7 @@ plan; they are covered by our Jobs & money modules (see `docs/SPEC.md`) and not 
 | Default purchase-order terms (contractor) | — | Partial | PO notes only |
 | Document folders | `document_folder` | Match | |
 | Dashboard display toggles | `/settings/display` | Match | |
-| Specification library | `/settings/spec-library` | Match | |
+| Specification library | `/settings/spec-library` (called "Presets" on the estimate Specifications tab) | Match | |
 | Default template for new estimates | ★ Templates "Make default" | Match | |
 | API webhooks, event log, API keys | — | Out of scope | Public API not in v1 |
 | Timesheets settings (own timesheets) | Job timesheets | Match | |

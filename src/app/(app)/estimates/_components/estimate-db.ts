@@ -38,7 +38,8 @@ async function loadGraph(estimateId: string): Promise<EstimateGraph> {
   const plans = await db.select().from(schema.plans).where(eq(schema.plans.estimateId, estimateId)).orderBy(asc(schema.plans.sortOrder));
   const measurements = await db.select().from(schema.measurements).where(eq(schema.measurements.estimateId, estimateId));
   const [qo] = await db.select().from(schema.quoteOptions).where(eq(schema.quoteOptions.estimateId, estimateId));
-  return { items, specifications, plans, measurements, quoteOptions: qo ?? null };
+  const specItemDetails = await db.select().from(schema.specItemDetails).where(eq(schema.specItemDetails.estimateId, estimateId));
+  return { items, specifications, plans, measurements, quoteOptions: qo ?? null, specItemDetails };
 }
 
 /** Deep-copies items (tree), specifications, quote options, plans and measurements from one estimate to another. */
@@ -49,6 +50,7 @@ export async function copyEstimateContent(sourceId: string, targetId: string) {
     for (const c of chunk(g.measurements)) await tx.insert(schema.measurements).values(c);
     for (const c of chunk(g.items)) await tx.insert(schema.estimateItems).values(c);
     for (const c of chunk(g.specifications)) await tx.insert(schema.specifications).values(c);
+    for (const c of chunk(g.specItemDetails, 5)) await tx.insert(schema.specItemDetails).values(c);
     if (g.quoteOptions) await tx.insert(schema.quoteOptions).values(g.quoteOptions);
   });
   await recalcEstimate(targetId);
@@ -89,6 +91,7 @@ export async function deleteEstimateCascade(id: string) {
   await db.transaction(async (tx) => {
     await tx.delete(schema.estimateItems).where(eq(schema.estimateItems.estimateId, id));
     await tx.delete(schema.specifications).where(eq(schema.specifications.estimateId, id));
+    await tx.delete(schema.specItemDetails).where(eq(schema.specItemDetails.estimateId, id));
     await tx.delete(schema.quoteOptions).where(eq(schema.quoteOptions.estimateId, id));
     await tx.delete(schema.measurements).where(eq(schema.measurements.estimateId, id));
     await tx.delete(schema.plans).where(eq(schema.plans.estimateId, id));

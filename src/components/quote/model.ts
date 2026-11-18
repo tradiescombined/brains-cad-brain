@@ -3,6 +3,7 @@
  * Built on the server by ./data.ts, rendered by <QuoteDocument>.
  */
 import type { SpecNode } from "./spec-tree";
+import type { SpecItemInput } from "./spec-costings";
 
 export type AllowanceKind = "none" | "PC" | "PS";
 export type AllowancePrint = "hide" | "show_total" | "show_items";
@@ -69,7 +70,8 @@ export interface QuoteModel {
   };
   specIntro: string | null;
   specs: SpecNode[];
-  inclusions: { id: string; description: string; quantity: number; uom: string | null; notes: string | null }[];
+  /** Spec-flagged costing items in costing order (with category, detail text and image). */
+  specItems: SpecItemInput[];
   acceptance: { name: string; signedAt: string } | null;
 }
 
