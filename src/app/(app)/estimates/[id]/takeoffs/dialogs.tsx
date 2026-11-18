@@ -5,7 +5,7 @@ import { Button, Field, Input, Select } from "@/components/ui";
 import { calibrateScale, distance, formatQuantity, parseRatio, ratioToScale, scaleToRatio, type Pt } from "@/lib/geometry";
 import { cx } from "@/lib/format";
 import { createCostingItem, setPlanScale } from "./actions";
-import { NEW_CATEGORY, type CategoryOption, type MeasurementView, type PlanView } from "./types";
+import { NEW_CATEGORY, type CategoryOption, type PlanView, type TakeoffView } from "./types";
 
 /** Controlled modal dialog (Esc / backdrop closes). */
 export function Dialog({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
@@ -163,10 +163,10 @@ export function ScaleDialog({ open, onClose, plan, line, onDrawLine, onDone }: {
   );
 }
 
-export function CostingDialog({ open, onClose, measurement, categories, estimateId, onDone }: {
+export function CostingDialog({ open, onClose, takeoff, categories, estimateId, onDone }: {
   open: boolean;
   onClose: () => void;
-  measurement: MeasurementView | null;
+  takeoff: TakeoffView | null;
   categories: CategoryOption[];
   estimateId: string;
   onDone: (msg: string) => void;
@@ -179,26 +179,26 @@ export function CostingDialog({ open, onClose, measurement, categories, estimate
   const [pending, start] = useTransition();
 
   useEffect(() => {
-    if (!open || !measurement) return;
+    if (!open || !takeoff) return;
     setCategoryId(takeoffCat?.id ?? categories[0]?.id ?? NEW_CATEGORY);
-    setDescription(measurement.description);
+    setDescription(takeoff.description);
     setError(null);
     setCreated(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, measurement?.id]);
+  }, [open, takeoff?.id]);
 
-  if (!measurement) return null;
+  if (!takeoff) return null;
   const options = [
     ...categories.map((c) => ({ value: c.id, label: c.label })),
     ...(takeoffCat ? [] : [{ value: NEW_CATEGORY, label: "+ New category “Takeoff items”" }]),
   ];
 
   return (
-    <Dialog open={open} title={`Create costing item from ${measurement.code}`} onClose={onClose}>
+    <Dialog open={open} title={`Create costing item from ${takeoff.code}`} onClose={onClose}>
       {created ? (
         <div className="space-y-4">
           <p className="text-sm text-ink-700">
-            Costing item added with quantity <code className="rounded bg-ink-100 px-1">[{measurement.code}]</code> ({formatQuantity(measurement.value, measurement.unit)}). Add a unit cost on the Costings tab.
+            Costing item added with quantity <code className="rounded bg-ink-100 px-1">[{takeoff.code}]</code> ({formatQuantity(takeoff.value, takeoff.unit)}). Add a unit cost on the Costings tab.
           </p>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={onClose}>Close</Button>
@@ -212,10 +212,10 @@ export function CostingDialog({ open, onClose, measurement, categories, estimate
             e.preventDefault();
             setError(null);
             start(async () => {
-              const r = await createCostingItem(measurement.id, categoryId, description);
+              const r = await createCostingItem(takeoff.id, categoryId, description);
               if (!r.ok) return setError(r.error);
               setCreated(true);
-              onDone(`Costing item created from ${measurement.code}`);
+              onDone(`Costing item created from ${takeoff.code}`);
             });
           }}
         >
@@ -223,11 +223,11 @@ export function CostingDialog({ open, onClose, measurement, categories, estimate
             <Select name="categoryId" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} options={options} />
           </Field>
           <Field label="Item description">
-            <Input name="itemDescription" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={`Measurement ${measurement.code}`} maxLength={200} />
+            <Input name="itemDescription" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={`Takeoff ${takeoff.code}`} maxLength={200} />
           </Field>
           <div className="grid grid-cols-2 gap-3 rounded-md bg-ink-50 p-3 text-xs text-ink-600">
-            <div>Quantity formula<div className="mt-0.5 font-mono text-sm text-ink-900">[{measurement.code}]</div></div>
-            <div>Unit<div className="mt-0.5 text-sm text-ink-900">{measurement.unit} · {formatQuantity(measurement.value, measurement.unit)}</div></div>
+            <div>Quantity formula<div className="mt-0.5 font-mono text-sm text-ink-900">[{takeoff.code}]</div></div>
+            <div>Unit<div className="mt-0.5 text-sm text-ink-900">{takeoff.unit} · {formatQuantity(takeoff.value, takeoff.unit)}</div></div>
           </div>
           {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
           <div className="flex justify-end gap-2 border-t border-ink-100 pt-4">

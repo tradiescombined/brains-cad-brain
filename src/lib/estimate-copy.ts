@@ -6,7 +6,7 @@
  * `src/app/(app)/estimates/_components/estimate-db.ts`.
  */
 import type { estimates, estimateItems, specifications, quoteOptions } from "../db/schema/estimates";
-import type { plans, measurements } from "../db/schema/takeoff";
+import type { plans, measurements, takeoffs } from "../db/schema/takeoff";
 
 export type EstimateRow = typeof estimates.$inferSelect;
 export type ItemRow = typeof estimateItems.$inferSelect;
@@ -14,6 +14,7 @@ export type SpecRow = typeof specifications.$inferSelect;
 export type QuoteOptionsRow = typeof quoteOptions.$inferSelect;
 export type PlanRow = typeof plans.$inferSelect;
 export type MeasurementRow = typeof measurements.$inferSelect;
+export type TakeoffRow = typeof takeoffs.$inferSelect;
 
 export type IdGen = () => string;
 const uuid: IdGen = () => crypto.randomUUID();
@@ -45,6 +46,7 @@ export interface EstimateGraph {
   items: ItemRow[];
   specifications: SpecRow[];
   plans: PlanRow[];
+  takeoffs: TakeoffRow[];
   measurements: MeasurementRow[];
   quoteOptions: QuoteOptionsRow | null;
 }
@@ -53,6 +55,7 @@ export interface CopiedGraph {
   items: Omit<ItemRow, never>[];
   specifications: Omit<SpecRow, "createdAt" | "updatedAt">[];
   plans: Omit<PlanRow, "createdAt" | "updatedAt">[];
+  takeoffs: Omit<TakeoffRow, "createdAt" | "updatedAt">[];
   measurements: Omit<MeasurementRow, "createdAt" | "updatedAt">[];
   quoteOptions: Omit<QuoteOptionsRow, "createdAt" | "updatedAt"> | null;
 }
@@ -60,7 +63,9 @@ export interface CopiedGraph {
 /**
  * Builds insertable copies of an estimate's content for `targetEstimateId`.
  * - items & specifications keep their tree shape via id remapping
- * - measurements are re-pointed at the copied plans; items' measurementId follows
+ * - takeoffs are copied (codes kept, so formulas still resolve); measurements (shapes) are
+ *   re-pointed at the copied plans and takeoffs; items' measurementId (a takeoff or, on legacy
+ *   rows, a shape) follows
  * - quote options are copied without the share token or any client acceptance
  */
 export function copyEstimateGraph(src: EstimateGraph, targetEstimateId: string, gen: IdGen = uuid): CopiedGraph {
@@ -71,19 +76,32 @@ export function copyEstimateGraph(src: EstimateGraph, targetEstimateId: string, 
     return { ...stripTimestamps(p), id, estimateId: targetEstimateId };
   });
 
-  const measurementMap = new Map<string, string>();
+  // Item links point at a takeoff (or, on legacy rows, a shape): one map covers both.
+  const linkMap = new Map<string, string>();
+  const newTakeoffs = src.takeoffs.map((t) => {
+    const id = gen();
+    linkMap.set(t.id, id);
+    return { ...stripTimestamps(t), id, estimateId: targetEstimateId };
+  });
+
   const newMeasurements = src.measurements
-    .filter((m) => planMap.has(m.planId))
+    .filter((m) => planMap.has(m.planId) && (!m.takeoffId || linkMap.has(m.takeoffId)))
     .map((m) => {
       const id = gen();
-      measurementMap.set(m.id, id);
-      return { ...stripTimestamps(m), id, estimateId: targetEstimateId, planId: planMap.get(m.planId)! };
+      linkMap.set(m.id, id);
+      return {
+        ...stripTimestamps(m),
+        id,
+        estimateId: targetEstimateId,
+        planId: planMap.get(m.planId)!,
+        takeoffId: m.takeoffId ? linkMap.get(m.takeoffId)! : null,
+      };
     });
 
   const items = remapTree(src.items, gen).rows.map((i) => ({
     ...i,
     estimateId: targetEstimateId,
-    measurementId: i.measurementId ? measurementMap.get(i.measurementId) ?? null : null,
+    measurementId: i.measurementId ? linkMap.get(i.measurementId) ?? null : null,
   }));
 
   const specs = remapTree(src.specifications, gen).rows.map((s) => ({ ...stripTimestamps(s), estimateId: targetEstimateId }));
@@ -99,7 +117,7 @@ export function copyEstimateGraph(src: EstimateGraph, targetEstimateId: string, 
       }
     : null;
 
-  return { items, specifications: specs, plans: newPlans, measurements: newMeasurements, quoteOptions: qo };
+  return { items, specifications: specs, plans: newPlans, takeoffs: newTakeoffs, measurements: newMeasurements, quoteOptions: qo };
 }
 
 /* ----------------------------------------------------------------------------------------- */

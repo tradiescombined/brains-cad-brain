@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { loadEstimate } from "@/lib/estimates";
+import { takeoffSummaries } from "@/lib/takeoffs";
 import { getLookups, getTaxRates } from "@/lib/settings";
 import { taxableDefaults } from "@/lib/tax-defaults";
 import { parseMarkupLines } from "@/lib/calc";
@@ -36,9 +37,7 @@ export default async function CostingsPage({ params }: { params: Promise<{ id: s
     <CostingsGrid
       estimateId={id}
       items={l.items}
-      measurements={l.measurements
-        .map((m) => ({ id: m.id, code: m.code, description: m.description, value: m.value, unit: m.unit }))
-        .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))}
+      measurements={takeoffSummaries(l.takeoffs, l.measurements)}
       markupLines={parseMarkupLines(e.markupLines)}
       taxRate={l.taxRate}
       taxLabel={l.taxRateRow ? (l.taxRateRow.name.includes("%") ? l.taxRateRow.name : `${l.taxRateRow.name} ${Math.round(l.taxRateRow.rate * 1000) / 10}%`) : "No tax"}

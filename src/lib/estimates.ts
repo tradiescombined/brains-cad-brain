@@ -2,8 +2,9 @@ import "server-only";
 import { db, schema } from "@/db";
 import { eq, asc } from "drizzle-orm";
 import { calculate, parseMarkupLines, type CalcResult, type Redistribution, type Rounding } from "./calc";
+import { takeoffValueMap } from "./takeoffs";
 
-/** Loads an estimate with its items, measurements and tax rate. */
+/** Loads an estimate with its items, takeoffs, measurements (shapes) and tax rate. */
 export async function loadEstimate(estimateId: string) {
   const [est] = await db.select().from(schema.estimates).where(eq(schema.estimates.id, estimateId));
   if (!est) return null;
@@ -13,17 +14,17 @@ export async function loadEstimate(estimateId: string) {
     .where(eq(schema.estimateItems.estimateId, estimateId))
     .orderBy(asc(schema.estimateItems.sortOrder));
   const ms = await db.select().from(schema.measurements).where(eq(schema.measurements.estimateId, estimateId));
+  const tos = await db.select().from(schema.takeoffs).where(eq(schema.takeoffs.estimateId, estimateId)).orderBy(asc(schema.takeoffs.sortOrder));
   const tax = est.taxRateId
     ? (await db.select().from(schema.taxRates).where(eq(schema.taxRates.id, est.taxRateId)))[0]
     : undefined;
-  return { estimate: est, items, measurements: ms, taxRate: tax?.rate ?? 0, taxRateRow: tax };
+  return { estimate: est, items, measurements: ms, takeoffs: tos, taxRate: tax?.rate ?? 0, taxRateRow: tax };
 }
 
 export type LoadedEstimate = NonNullable<Awaited<ReturnType<typeof loadEstimate>>>;
 
 export function calcLoaded(l: LoadedEstimate): CalcResult {
-  const measurements: Record<string, number> = {};
-  for (const m of l.measurements) measurements[m.code] = m.value;
+  const measurements = takeoffValueMap(l.takeoffs, l.measurements);
   return calculate({
     items: l.items.map((i) => ({ ...i, taxable: i.taxable })),
     markupLines: parseMarkupLines(l.estimate.markupLines),

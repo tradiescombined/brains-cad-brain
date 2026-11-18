@@ -12,6 +12,8 @@ interface Props {
   plan: PlanView;
   measurements: MeasurementView[];
   selectedId: string | null;
+  /** Takeoff whose shapes are highlighted. */
+  highlightTakeoffId?: string | null;
   onSelect: (id: string | null) => void;
   tool: Tool;
   pending: PendingShape | null;
@@ -31,7 +33,7 @@ export function keyboardBusy(e: KeyboardEvent) {
   return !!document.querySelector("[role=dialog]");
 }
 
-export function PlanViewer({ plan, measurements, selectedId, onSelect, tool, pending, draftColour, onComplete, onScaleLine, onHint }: Props) {
+export function PlanViewer({ plan, measurements, selectedId, highlightTakeoffId = null, onSelect, tool, pending, draftColour, onComplete, onScaleLine, onHint }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -247,7 +249,7 @@ export function PlanViewer({ plan, measurements, selectedId, onSelect, tool, pen
         : "Click to add points · double-click or Enter to finish · Backspace undoes · Shift snaps 90°"
     : tool === "pan"
       ? "Drag to pan · scroll to zoom"
-      : "Click a measurement to select · drag to pan · scroll to zoom";
+      : "Click a shape to select its takeoff · drag to pan · scroll to zoom";
 
   return (
     <div ref={wrapRef} className="relative h-full w-full overflow-hidden bg-ink-100">
@@ -277,6 +279,8 @@ export function PlanViewer({ plan, measurements, selectedId, onSelect, tool, pen
                 m={m}
                 zoom={z}
                 selected={m.id === selectedId}
+                highlighted={m.takeoffId === highlightTakeoffId}
+                dimmed={!!highlightTakeoffId && m.takeoffId !== highlightTakeoffId}
                 onSelect={() => onSelect(m.id)}
               />
             ))}
@@ -319,11 +323,13 @@ export function PlanViewer({ plan, measurements, selectedId, onSelect, tool, pen
   );
 }
 
-function MeasurementShape({ m, zoom, selected, onSelect }: { m: MeasurementView; zoom: number; selected: boolean; onSelect: () => void }) {
+function MeasurementShape({ m, zoom, selected, highlighted, dimmed, onSelect }: { m: MeasurementView; zoom: number; selected: boolean; highlighted: boolean; dimmed: boolean; onSelect: () => void }) {
   const [lx, ly] = m.shape === "point" ? m.points[0] ?? [0, 0] : centroid(outline(m.shape, m.points));
   return (
     <g
       data-testid={`shape-${m.code}`}
+      data-highlighted={highlighted ? "true" : undefined}
+      opacity={dimmed ? 0.45 : 1}
       className="cursor-pointer"
       onPointerDown={(e) => {
         if (e.button !== 0) return;
@@ -331,7 +337,7 @@ function MeasurementShape({ m, zoom, selected, onSelect }: { m: MeasurementView;
         onSelect();
       }}
     >
-      <ShapeGeometry shape={m.shape} pts={m.points} colour={m.colour} zoom={zoom} selected={selected} negative={m.isNegative} />
+      <ShapeGeometry shape={m.shape} pts={m.points} colour={m.colour} zoom={zoom} selected={selected} highlighted={highlighted} negative={m.isNegative} />
       <text
         x={lx}
         y={ly}
@@ -352,8 +358,8 @@ function MeasurementShape({ m, zoom, selected, onSelect }: { m: MeasurementView;
   );
 }
 
-function ShapeGeometry({ shape, pts, colour, zoom, selected, dashed, negative, open }: { shape: Shape; pts: Pt[]; colour: string; zoom: number; selected?: boolean; dashed?: boolean; negative?: boolean; open?: boolean }) {
-  const sw = selected ? 4 : 2;
+function ShapeGeometry({ shape, pts, colour, zoom, selected, highlighted, dashed, negative, open }: { shape: Shape; pts: Pt[]; colour: string; zoom: number; selected?: boolean; highlighted?: boolean; dashed?: boolean; negative?: boolean; open?: boolean }) {
+  const sw = selected ? 4 : highlighted ? 3 : 2;
   const common = {
     stroke: colour,
     strokeWidth: sw,
@@ -362,7 +368,7 @@ function ShapeGeometry({ shape, pts, colour, zoom, selected, dashed, negative, o
     strokeLinejoin: "round" as const,
     strokeLinecap: "round" as const,
   };
-  const fillOpacity = negative ? 0.08 : selected ? 0.32 : 0.18;
+  const fillOpacity = negative ? 0.08 : selected ? 0.32 : highlighted ? 0.26 : 0.18;
   const handles = selected ? pts.map((p, i) => <rect key={i} x={p[0] - 4 / zoom} y={p[1] - 4 / zoom} width={8 / zoom} height={8 / zoom} fill="#fff" stroke={colour} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />) : null;
   if (shape === "point") {
     return (

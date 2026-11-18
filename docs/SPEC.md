@@ -51,9 +51,10 @@ Lead → Estimate (takeoff + costings + specs) → Quote sent → Accepted → J
 6. **Plans & Takeoffs** `/estimates/[id]/takeoffs` — upload plan images (PNG/JPG; PDF pages via
    pdf.js render to image if feasible), set scale by drawing a known-length line, tools: line,
    polyline (length), rectangle/polygon/ellipse (area), point (count); pitch, depth (→m3), height
-   (length→wall m2), negative (deductions); measurement list with codes M1..Mn, colours, rename,
-   delete; zoom/pan; values feed costing formulas (recalcEstimate after changes); "link measurement
-   to new costing item".
+   (length→wall m2), negative (deductions); takeoff list (codes M1..Mn): each takeoff is one named
+   quantity built from several shapes on any plans (summed, deductions subtract) or entered with a
+   calculator; colours, rename, hide, reorder, search, delete, printable list; zoom/pan; values feed
+   costing formulas (recalcEstimate after changes); "create costing item from takeoff".
 7. **Specifications & Quote** `/estimates/[id]/specifications`, `/estimates/[id]/quote` — spec
    sections tree editor, spec library templates (insert/save); quote builder with all print
    options (see `quote_options` table), cover letter & T&Cs with merge fields

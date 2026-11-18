@@ -15,13 +15,32 @@ export interface PlanView {
   measurementCount: number;
 }
 
+/** A takeoff: a named quantity (code "M1") built from shapes on any plans, or entered manually. */
+export interface TakeoffView {
+  id: string;
+  code: string;
+  description: string;
+  unit: string;
+  colour: string;
+  hidden: boolean;
+  /** Calculator expression when entered manually (shapes are then ignored). */
+  manualExpr: string | null;
+  value: number;
+  shapeCount: number;
+  /** Number of costing items whose formula references this code. */
+  usedBy: number;
+}
+
+/** A shape drawn on a plan; belongs to a takeoff. */
 export interface MeasurementView {
   id: string;
   planId: string;
+  takeoffId: string;
+  /** The owning takeoff's code. */
   code: string;
-  description: string;
   shape: Shape;
   points: Pt[];
+  /** The owning takeoff's colour. */
   colour: string;
   unit: string;
   pitchDegrees: number;
@@ -29,8 +48,6 @@ export interface MeasurementView {
   heightMm: number;
   isNegative: boolean;
   value: number;
-  /** Number of costing items whose formula references this code. */
-  usedBy: number;
 }
 
 export interface CategoryOption {

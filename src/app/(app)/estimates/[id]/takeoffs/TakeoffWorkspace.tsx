@@ -4,10 +4,10 @@ import { cx } from "@/lib/format";
 import type { Pt, Shape } from "@/lib/geometry";
 import { createMeasurement } from "./actions";
 import { CostingDialog, ScaleDialog, scaleSummary } from "./dialogs";
-import { MeasurementPanel } from "./MeasurementPanel";
+import { TakeoffPanel } from "./TakeoffPanel";
 import { PlanList, useUploader } from "./PlanList";
 import { keyboardBusy, PlanViewer, type PendingShape } from "./PlanViewer";
-import { PALETTE, type CategoryOption, type MeasurementView, type PlanView, type Tool } from "./types";
+import { PALETTE, type CategoryOption, type MeasurementView, type PlanView, type TakeoffView, type Tool } from "./types";
 
 const TOOLS: { tool: Tool; label: string; key: string; icon: string; group: number }[] = [
   { tool: "select", label: "Select", key: "v", icon: "↖", group: 0 },
@@ -23,20 +23,24 @@ const TOOLS: { tool: Tool; label: string; key: string; icon: string; group: numb
 
 type Toast = { text: string; tone: "ok" | "error" } | null;
 
-export function TakeoffWorkspace({ estimateId, plans, measurements, categories, initialPlanId }: {
+export function TakeoffWorkspace({ estimateId, plans, takeoffs, measurements, categories, initialPlanId }: {
   estimateId: string;
   plans: PlanView[];
+  takeoffs: TakeoffView[];
   measurements: MeasurementView[];
   categories: CategoryOption[];
   initialPlanId?: string;
 }) {
   const [activeId, setActiveId] = useState<string | null>(() => (initialPlanId && plans.some((p) => p.id === initialPlanId) ? initialPlanId : plans[0]?.id ?? null));
   const [tool, setTool] = useState<Tool>("select");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** Selected takeoff: highlighted on every plan, and the takeoff new shapes are added to. */
+  const [takeoffId, setTakeoffId] = useState<string | null>(null);
+  /** Selected shape (belongs to the selected takeoff). */
+  const [shapeId, setShapeId] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingShape | null>(null);
   const [scaleOpen, setScaleOpen] = useState(false);
   const [scaleLine, setScaleLine] = useState<[Pt, Pt] | null>(null);
-  const [costingFor, setCostingFor] = useState<MeasurementView | null>(null);
+  const [costingFor, setCostingFor] = useState<TakeoffView | null>(null);
   const [nextLabel, setNextLabel] = useState("");
   const [toast, setToast] = useState<Toast>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,8 +76,19 @@ export function TakeoffWorkspace({ estimateId, plans, measurements, categories, 
     (msg) => message(msg, "error"),
   );
 
-  const planMeasurements = useMemo(() => measurements.filter((m) => m.planId === plan?.id), [measurements, plan?.id]);
-  const draftColour = PALETTE[measurements.length % PALETTE.length];
+  const target = takeoffs.find((t) => t.id === takeoffId) ?? null;
+  const hiddenIds = useMemo(() => new Set(takeoffs.filter((t) => t.hidden).map((t) => t.id)), [takeoffs]);
+  const planMeasurements = useMemo(
+    () => measurements.filter((m) => m.planId === plan?.id && !hiddenIds.has(m.takeoffId)),
+    [measurements, plan?.id, hiddenIds],
+  );
+  /** Plans holding shapes of the selected takeoff, with how many. */
+  const targetCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    if (target) for (const m of measurements) if (m.takeoffId === target.id) c[m.planId] = (c[m.planId] ?? 0) + 1;
+    return c;
+  }, [measurements, target]);
+  const draftColour = target?.colour ?? PALETTE[takeoffs.length % PALETTE.length];
 
   // Tool keyboard shortcuts.
   useEffect(() => {
@@ -91,13 +106,14 @@ export function TakeoffWorkspace({ estimateId, plans, measurements, categories, 
       if (!plan) return;
       const colour = draftColour;
       setPending({ shape, points: pts, colour });
-      const r = await createMeasurement({ planId: plan.id, shape, points: pts, colour, description: nextLabel.trim() });
+      const r = await createMeasurement({ planId: plan.id, shape, points: pts, colour, description: nextLabel.trim(), takeoffId: target?.id ?? null });
       setPending(null);
       if (!r.ok) return message(r.error, "error");
-      setSelectedId(r.data.id);
-      message(`${r.data.code} added`);
+      setTakeoffId(r.data.takeoffId);
+      setShapeId(null);
+      message(r.data.created ? `${r.data.code} added` : `Shape added to ${r.data.code}`);
     },
-    [plan, draftColour, nextLabel, message],
+    [plan, draftColour, nextLabel, message, target],
   );
 
   const onScaleLine = useCallback((a: Pt, b: Pt) => {
@@ -105,11 +121,38 @@ export function TakeoffWorkspace({ estimateId, plans, measurements, categories, 
     setScaleOpen(true);
   }, []);
 
-  const selectMeasurement = useCallback(
+  /** Selects a shape and its takeoff, switching to the shape's plan. */
+  const selectShape = useCallback(
     (id: string | null) => {
-      setSelectedId(id);
+      setShapeId(id);
       const m = id ? measurements.find((x) => x.id === id) : null;
-      if (m && m.planId !== plan?.id) setActiveId(m.planId);
+      if (m) {
+        setTakeoffId(m.takeoffId);
+        if (m.planId !== plan?.id) setActiveId(m.planId);
+      }
+    },
+    [measurements, plan?.id],
+  );
+
+  /** Canvas: clicking a shape selects it; clicking empty space or Esc clears the selection. */
+  const onCanvasSelect = useCallback(
+    (id: string | null) => {
+      if (id) return selectShape(id);
+      setShapeId(null);
+      setTakeoffId(null);
+    },
+    [selectShape],
+  );
+
+  const selectTakeoff = useCallback(
+    (id: string | null) => {
+      setTakeoffId(id);
+      setShapeId(null);
+      // Show a plan holding the takeoff's shapes when the current plan has none.
+      if (id && !measurements.some((m) => m.takeoffId === id && m.planId === plan?.id)) {
+        const first = measurements.find((m) => m.takeoffId === id);
+        if (first) setActiveId(first.planId);
+      }
     },
     [measurements, plan?.id],
   );
@@ -147,17 +190,38 @@ export function TakeoffWorkspace({ estimateId, plans, measurements, categories, 
           ))}
         </div>
         <span className="flex-1" />
-        <label className="flex items-center gap-1.5 text-xs text-ink-600">
-          Label new as
-          <input
-            value={nextLabel}
-            onChange={(e) => setNextLabel(e.target.value)}
-            placeholder="e.g. External walls"
-            aria-label="Description for new measurements"
-            maxLength={200}
-            className="w-40 rounded-md border border-ink-200 px-2 py-1 text-xs focus:border-brand-500 focus:outline-none"
-          />
-        </label>
+        <span data-testid="draw-target" className="flex flex-wrap items-center gap-1 text-xs text-ink-600">
+          {target ? (
+            target.manualExpr != null ? (
+              <span className="rounded bg-violet-50 px-1.5 py-0.5 text-violet-800 ring-1 ring-violet-200">{target.code} is entered manually</span>
+            ) : (
+              <span className="flex items-center gap-1 rounded bg-brand-50 px-1.5 py-0.5 text-brand-800 ring-1 ring-brand-200">
+                <span className="size-2.5 rounded-sm" style={{ background: target.colour }} />
+                Drawing adds to <strong className="font-semibold">{target.code}</strong>
+              </span>
+            )
+          ) : (
+            <span>Drawing creates a new takeoff</span>
+          )}
+          {target && (
+            <button type="button" onClick={() => selectTakeoff(null)} className="rounded px-1.5 py-0.5 font-medium text-ink-700 ring-1 ring-ink-200 hover:bg-ink-100">
+              New takeoff
+            </button>
+          )}
+        </span>
+        {!target && (
+          <label className="flex items-center gap-1.5 text-xs text-ink-600">
+            Label new as
+            <input
+              value={nextLabel}
+              onChange={(e) => setNextLabel(e.target.value)}
+              placeholder="e.g. External walls"
+              aria-label="Description for new takeoffs"
+              maxLength={200}
+              className="w-40 rounded-md border border-ink-200 px-2 py-1 text-xs focus:border-brand-500 focus:outline-none"
+            />
+          </label>
+        )}
         {plan && (
           <button
             type="button"
@@ -179,19 +243,19 @@ export function TakeoffWorkspace({ estimateId, plans, measurements, categories, 
         </div>
       )}
 
-      {/* Three-pane workspace */}
-      <div className="grid grid-cols-1 gap-3 lg:h-[calc(100vh-15rem)] lg:min-h-[560px] lg:grid-cols-[200px_minmax(0,1fr)_330px]">
-        <aside className="order-2 max-h-80 overflow-hidden rounded-lg border border-ink-200 bg-white shadow-xs lg:order-1 lg:max-h-none">
-          <PlanList
+      {/* Three-pane workspace: takeoffs | plan | plans */}
+      <div className="grid grid-cols-1 gap-3 lg:h-[calc(100vh-15rem)] lg:min-h-[560px] lg:grid-cols-[340px_minmax(0,1fr)_200px]">
+        <aside className="order-2 max-h-[70vh] overflow-hidden rounded-lg border border-ink-200 bg-white shadow-xs lg:order-1 lg:max-h-none">
+          <TakeoffPanel
+            estimateId={estimateId}
             plans={plans}
-            activeId={plan?.id ?? null}
-            onActivate={(id) => {
-              setActiveId(id);
-              setSelectedId(null);
-            }}
-            onOpenUpload={uploader.open}
-            onDropFiles={uploader.upload}
-            progress={uploader.progress}
+            takeoffs={takeoffs}
+            measurements={measurements}
+            selectedTakeoffId={target?.id ?? null}
+            selectedShapeId={shapeId}
+            onSelectTakeoff={selectTakeoff}
+            onSelectShape={selectShape}
+            onCreateCosting={setCostingFor}
             onMessage={message}
           />
         </aside>
@@ -202,8 +266,9 @@ export function TakeoffWorkspace({ estimateId, plans, measurements, categories, 
               key={plan.id}
               plan={plan}
               measurements={planMeasurements}
-              selectedId={selectedId}
-              onSelect={selectMeasurement}
+              selectedId={shapeId}
+              highlightTakeoffId={target?.id ?? null}
+              onSelect={onCanvasSelect}
               tool={tool}
               pending={pending}
               draftColour={draftColour}
@@ -223,13 +288,18 @@ export function TakeoffWorkspace({ estimateId, plans, measurements, categories, 
           )}
         </section>
 
-        <aside className="order-3 max-h-[70vh] overflow-hidden rounded-lg border border-ink-200 bg-white shadow-xs lg:max-h-none">
-          <MeasurementPanel
+        <aside className="order-3 max-h-80 overflow-hidden rounded-lg border border-ink-200 bg-white shadow-xs lg:max-h-none">
+          <PlanList
             plans={plans}
-            measurements={measurements}
-            selectedId={selectedId}
-            onSelect={selectMeasurement}
-            onCreateCosting={setCostingFor}
+            activeId={plan?.id ?? null}
+            highlight={target ? { code: target.code, counts: targetCounts } : null}
+            onActivate={(id) => {
+              setActiveId(id);
+              setShapeId(null);
+            }}
+            onOpenUpload={uploader.open}
+            onDropFiles={uploader.upload}
+            progress={uploader.progress}
             onMessage={message}
           />
         </aside>
@@ -248,7 +318,7 @@ export function TakeoffWorkspace({ estimateId, plans, measurements, categories, 
       <CostingDialog
         open={!!costingFor}
         onClose={() => setCostingFor(null)}
-        measurement={costingFor}
+        takeoff={costingFor}
         categories={categories}
         estimateId={estimateId}
         onDone={(m) => message(m)}

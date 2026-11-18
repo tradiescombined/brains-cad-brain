@@ -36,20 +36,25 @@ async function loadGraph(estimateId: string): Promise<EstimateGraph> {
   const items = await db.select().from(schema.estimateItems).where(eq(schema.estimateItems.estimateId, estimateId)).orderBy(asc(schema.estimateItems.sortOrder));
   const specifications = await db.select().from(schema.specifications).where(eq(schema.specifications.estimateId, estimateId)).orderBy(asc(schema.specifications.sortOrder));
   const plans = await db.select().from(schema.plans).where(eq(schema.plans.estimateId, estimateId)).orderBy(asc(schema.plans.sortOrder));
+  const takeoffs = await db.select().from(schema.takeoffs).where(eq(schema.takeoffs.estimateId, estimateId)).orderBy(asc(schema.takeoffs.sortOrder));
   const measurements = await db.select().from(schema.measurements).where(eq(schema.measurements.estimateId, estimateId));
   const [qo] = await db.select().from(schema.quoteOptions).where(eq(schema.quoteOptions.estimateId, estimateId));
-  return { items, specifications, plans, measurements, quoteOptions: qo ?? null };
+  return { items, specifications, plans, takeoffs, measurements, quoteOptions: qo ?? null };
 }
 
-/** Deep-copies items (tree), specifications, quote options, plans and measurements from one estimate to another. */
+/** Deep-copies items (tree), specifications, quote options, plans, takeoffs and their shapes from one estimate to another. */
 export async function copyEstimateContent(sourceId: string, targetId: string) {
   const g = copyEstimateGraph(await loadGraph(sourceId), targetId);
   await db.transaction(async (tx) => {
     for (const c of chunk(g.plans, 10)) await tx.insert(schema.plans).values(c);
+    for (const c of chunk(g.takeoffs)) await tx.insert(schema.takeoffs).values(c);
     for (const c of chunk(g.measurements)) await tx.insert(schema.measurements).values(c);
     for (const c of chunk(g.items)) await tx.insert(schema.estimateItems).values(c);
     for (const c of chunk(g.specifications)) await tx.insert(schema.specifications).values(c);
     if (g.quoteOptions) await tx.insert(schema.quoteOptions).values(g.quoteOptions);
+    // Keep the takeoff code counter so codes deleted in the source are not handed out again.
+    const [ctr] = await tx.select().from(schema.takeoffCounters).where(eq(schema.takeoffCounters.estimateId, sourceId));
+    if (ctr) await tx.insert(schema.takeoffCounters).values({ estimateId: targetId, nextMeasurementNumber: ctr.nextMeasurementNumber }).onConflictDoNothing();
   });
   await recalcEstimate(targetId);
 }
@@ -91,6 +96,7 @@ export async function deleteEstimateCascade(id: string) {
     await tx.delete(schema.specifications).where(eq(schema.specifications.estimateId, id));
     await tx.delete(schema.quoteOptions).where(eq(schema.quoteOptions.estimateId, id));
     await tx.delete(schema.measurements).where(eq(schema.measurements.estimateId, id));
+    await tx.delete(schema.takeoffs).where(eq(schema.takeoffs.estimateId, id));
     await tx.delete(schema.plans).where(eq(schema.plans.estimateId, id));
     await tx.delete(schema.estimateVersions).where(eq(schema.estimateVersions.estimateId, id));
     await tx.delete(schema.notes).where(and(eq(schema.notes.entityType, "estimate"), eq(schema.notes.entityId, id)));

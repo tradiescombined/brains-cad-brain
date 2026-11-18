@@ -3,8 +3,10 @@ import { and, asc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { referencedMeasurements } from "@/lib/expr";
 import { parsePoints, type Shape } from "@/lib/geometry";
+import { shapesByTakeoff } from "@/lib/takeoffs";
+import { ensureTakeoffs } from "./takeoff-db";
 import { TakeoffWorkspace } from "./TakeoffWorkspace";
-import type { CategoryOption, MeasurementView, PlanView } from "./types";
+import type { CategoryOption, MeasurementView, PlanView, TakeoffView } from "./types";
 
 export const metadata = { title: "Plans & takeoffs" };
 
@@ -13,6 +15,7 @@ export default async function TakeoffsPage({ params, searchParams }: { params: P
   const { plan: planParam } = await searchParams;
   const [est] = await db.select({ id: schema.estimates.id }).from(schema.estimates).where(eq(schema.estimates.id, id));
   if (!est) notFound();
+  await ensureTakeoffs(id);
 
   const planRows = await db
     .select({
@@ -27,6 +30,12 @@ export default async function TakeoffsPage({ params, searchParams }: { params: P
     .from(schema.plans)
     .where(eq(schema.plans.estimateId, id))
     .orderBy(asc(schema.plans.sortOrder), asc(schema.plans.createdAt));
+
+  const takeoffRows = await db
+    .select()
+    .from(schema.takeoffs)
+    .where(eq(schema.takeoffs.estimateId, id))
+    .orderBy(asc(schema.takeoffs.sortOrder), asc(schema.takeoffs.createdAt));
 
   const measurementRows = await db
     .select()
@@ -59,26 +68,42 @@ export default async function TakeoffsPage({ params, searchParams }: { params: P
     measurementCount: counts.get(p.id) ?? 0,
   }));
 
-  const measurements: MeasurementView[] = measurementRows.map((m) => ({
-    id: m.id,
-    planId: m.planId,
-    code: m.code,
-    description: m.description,
-    shape: m.shape as Shape,
-    points: parsePoints(m.points),
-    colour: m.colour,
-    unit: m.unit,
-    pitchDegrees: m.pitchDegrees,
-    depthMm: m.depthMm,
-    heightMm: m.heightMm,
-    isNegative: m.isNegative,
-    value: m.value,
-    usedBy: usage.get(m.code.toUpperCase()) ?? 0,
+  const { grouped } = shapesByTakeoff(takeoffRows, measurementRows);
+  const takeoffs: TakeoffView[] = takeoffRows.map((t) => ({
+    id: t.id,
+    code: t.code,
+    description: t.description,
+    unit: t.unit,
+    colour: t.colour,
+    hidden: t.hidden,
+    manualExpr: t.manualExpr,
+    value: t.value,
+    shapeCount: grouped.get(t.id)?.length ?? 0,
+    usedBy: usage.get(t.code.toUpperCase()) ?? 0,
   }));
+  const colourOf = new Map(takeoffRows.map((t) => [t.id, t.colour]));
+
+  const measurements: MeasurementView[] = measurementRows
+    .filter((m) => m.takeoffId && colourOf.has(m.takeoffId))
+    .map((m) => ({
+      id: m.id,
+      planId: m.planId,
+      takeoffId: m.takeoffId!,
+      code: m.code,
+      shape: m.shape as Shape,
+      points: parsePoints(m.points),
+      colour: colourOf.get(m.takeoffId!) ?? m.colour,
+      unit: m.unit,
+      pitchDegrees: m.pitchDegrees,
+      depthMm: m.depthMm,
+      heightMm: m.heightMm,
+      isNegative: m.isNegative,
+      value: m.value,
+    }));
 
   const categories: CategoryOption[] = items
     .filter((i) => i.kind === "category" && !i.parentId)
     .map((c, idx) => ({ id: c.id, label: `${idx + 1}. ${c.description || "Untitled category"}` }));
 
-  return <TakeoffWorkspace estimateId={id} plans={plans} measurements={measurements} categories={categories} initialPlanId={planParam} />;
+  return <TakeoffWorkspace estimateId={id} plans={plans} takeoffs={takeoffs} measurements={measurements} categories={categories} initialPlanId={planParam} />;
 }

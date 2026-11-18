@@ -94,7 +94,7 @@ async function purgeEntity(id) {
 
 export async function purgeEstimate(id) {
   if (!id) return;
-  for (const t of ["estimate_items", "estimate_versions", "specifications", "quote_options", "measurements", "plans", "takeoff_counters", "selections"]) {
+  for (const t of ["estimate_items", "estimate_versions", "specifications", "quote_options", "measurements", "takeoffs", "plans", "takeoff_counters", "selections"]) {
     await run(`delete from ${t} where estimate_id = ?`, [id]);
   }
   await run("update jobs set estimate_id = null where estimate_id = ?", [id]);

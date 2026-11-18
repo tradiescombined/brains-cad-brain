@@ -19,14 +19,14 @@ Items marked ★ were added or completed in the fidelity pass (see "Closed in th
 | Leads | 5 | 0 | 0 | 0 |
 | Estimates (list, create, header, details) | 26 | 2 | 1 | 3 |
 | Costings | 23 | 2 | 1 | 2 |
-| Plans & takeoffs | 13 | 1 | 1 | 1 |
+| Plans & takeoffs | 17 | 1 | 1 | 1 |
 | Quote options & client acceptance | 22 | 1 | 0 | 0 |
 | Clients | 17 | 0 | 0 | 2 |
 | Contacts (suppliers & trades) | 12 | 3 | 0 | 2 |
 | Catalogues | 12 | 2 | 1 | 2 |
 | Settings / advanced setup | 22 | 2 | 0 | 5 |
 | Integrations | 0 | 1 | 0 | 8 |
-| **Total (209 rows)** | **161** | **15** | **4** | **29** |
+| **Total (213 rows)** | **165** | **15** | **4** | **29** |
 
 Jobs, schedule, invoices, selections and orders were not visible on the captured (Foundation)
 plan; they are covered by our Jobs & money modules (see `docs/SPEC.md`) and not scored here.
@@ -138,7 +138,11 @@ plan; they are covered by our Jobs & money modules (see `docs/SPEC.md`) and not 
 | Plan label, description, image, order | `plans` | Match | |
 | Horizontal and vertical scale | Scale by known-length line | Partial | One uniform scale per plan |
 | PDF plan pages | pdf.js render to image | Match | |
-| Measurement description, value, colour, unit (m, m2, m3, ea) | `measurements` | Match | |
+| Takeoff description, value, colour, unit (m, m2, m3, ea) | `takeoffs` | Match | |
+| Takeoff built from several shapes on any plans (PlanMeasurement → ID_Measurement), negatives deduct | `measurements.takeoffId`, `src/lib/takeoffs.ts` | Match | A shape must produce its takeoff's unit |
+| Manual takeoff via calculator (no drawing) | `takeoffs.manualExpr` (expression, `tryEvaluate`) | Match | |
+| Hide (eye), reorder, search, delete takeoffs | Takeoff panel | Match | Hidden takeoffs still count in costings |
+| Print take offs | `/estimates/[id]/takeoffs/print` | Match | |
 | Shapes: polygon, line, point, rectangle, ellipse, polyline | `geometry.ts` SHAPES | Match | |
 | Pitch (and pitch ratio) | `pitchDegrees` | Match | Degrees only, no ratio entry |
 | Depth (→ volume) | `depthMm` | Match | |
@@ -147,7 +151,7 @@ plan; they are covered by our Jobs & money modules (see `docs/SPEC.md`) and not 
 | Codes M1..Mn feed formulas | `nextMeasurementCode` | Match | |
 | Rename, delete, colour | Measurement panel | Match | |
 | Zoom / pan | `PlanViewer` | Match | |
-| Link measurement to new costing item | `linkMeasurementToItem` | Match | |
+| Link takeoff to new costing item | `createCostingItem` (per takeoff) | Match | |
 | Line thickness | — | Missing | Cosmetic |
 | Angle / pitch helper tool | Pitch field on each measurement | Match | Pitch input covers roof angles |
 | AI takeoff assistant | — | Out of scope | AI |
