@@ -493,6 +493,8 @@ and `logs/service-backup.log`.
 |---|---|
 | Every page shows **"Internal Server Error"**, and the log says **"Clerk keys are missing from your environment"** | The Clerk keys in `.env` are empty, or you added them but didn't rebuild. Paste the keys, run `npm run setup`, restart. |
 | `npm run serve` says **"Refusing to start: BCB_AUTH_BYPASS is set"** | Delete the `BCB_AUTH_BYPASS` / `BCB_ALLOW_TEST_BYPASS` lines from `.env` / `.env.local`. They switch sign-in off and are for automated tests only. |
+| `npm run setup` says **"Something is running on port 3000 … the build was skipped"** | The server is running, so setup won't rebuild under it. Stop it (`launchctl bootout gui/$(id -u)/com.brainscadbrain.server`), run `npm run setup`, then `npm run service:install` (or `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.brainscadbrain.server.plist`). |
+| `npm ci` fails: **"package.json and package-lock.json are not in sync"** | The lock file on GitHub is out of date. Run `npm install`, then `npm run setup`, and push the changed `package-lock.json`. Otherwise `npm run update` refuses on this Mac. |
 | **"Port 3000 is already in use"** | It's already running, probably under auto-start (`npm run service:status`). Or use another port: `PORT=3001` in `.env`. |
 | Works on the Mac but **not from other devices** | Same Wi-Fi or network? Try the IP address instead of `.local`. Check System Settings → Network → Firewall → Options: *node* must be allowed. `HOST` must not be `127.0.0.1` for option A. |
 | Nothing works in the morning | The Mac slept or logged out. See step 8. |

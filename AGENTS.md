@@ -31,6 +31,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Permissions: every new Server Action must start with a permission check from `@/lib/permissions`
   (`denied("…")` for actions returning state, `requirePermission("…")` for void form actions); gate new
   pages/sections and hide controls with `currentPermissions()`. Matrix: `docs/PERMISSIONS.md`.
+- Installing on a Mac as an agent: follow `docs/INSTALL-FOR-CLAUDE.md` step by step (never `clerk init`, never read `.env`).
 - Self-hosting (owner runs it on their own computer): `docs/SELF-HOSTING.md`; scripts `scripts/{setup,serve,
   update,backup,restore,service,doctor}.mjs` use Node built-ins only (they run before `npm ci`), share
   `scripts/lib/common.mjs`, and the auto-start generators in `scripts/lib/service-defs.mjs` are unit tested.

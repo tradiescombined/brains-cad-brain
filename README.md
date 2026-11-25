@@ -17,7 +17,7 @@ npm run dev           # http://localhost:3000
 ```
 
 **Run it as a server** on your own Mac, Windows PC or Linux box (install from GitHub, sign-in, auto-start,
-updates, backups): see **[docs/SELF-HOSTING.md](docs/SELF-HOSTING.md)**. In short:
+updates, backups): see **[docs/SELF-HOSTING.md](docs/SELF-HOSTING.md)**. Claude Code installing it: **[docs/INSTALL-FOR-CLAUDE.md](docs/INSTALL-FOR-CLAUDE.md)**. In short:
 
 ```bash
 npm run setup     # install, .env, database (never wipes data), build — safe to re-run
