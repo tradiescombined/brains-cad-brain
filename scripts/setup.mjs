@@ -16,7 +16,7 @@ import {
 
 process.chdir(ROOT);
 const skipBuild = process.argv.includes("--skip-build");
-console.log(c.bold("Brains Cad Brain — setup") + c.dim(`  (${ROOT})`));
+console.log(c.bold("TC Quoting Estimate — setup") + c.dim(`  (${ROOT})`));
 
 // 1 ── Node ───────────────────────────────────────────────────────────────────────────────────────
 ok(`Node.js ${process.versions.node}`);
@@ -74,7 +74,7 @@ heading("Build");
 if (skipBuild) warn("Skipped (--skip-build)");
 else if (await portInUse()) {
   warn(
-    `Something is running on port ${port()} (probably Brains Cad Brain itself). Building now would break the running site, so the build was skipped.\n` +
+    `Something is running on port ${port()} (probably TC Quoting Estimate itself). Building now would break the running site, so the build was skipped.\n` +
       "  Stop the server (Ctrl+C in its window, or npm run service:stop) and run npm run setup again.",
   );
 } else {

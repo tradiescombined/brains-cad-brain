@@ -34,7 +34,7 @@ for (const stream of [process.stdout, process.stderr]) {
     return toTerminal || stream === process.stderr ? original(chunk, ...rest) : true;
   };
 }
-console.log(`\n=== ${new Date().toISOString()} starting Brains Cad Brain (pid ${process.pid}) ===`);
+console.log(`\n=== ${new Date().toISOString()} starting TC Quoting Estimate (pid ${process.pid}) ===`);
 
 // ── safety checks ───────────────────────────────────────────────────────────────────────────────
 const bad = bypassVars();
@@ -72,7 +72,7 @@ const p = port();
 const h = host();
 if (await portInUse(p, h)) {
   die(
-    `Port ${p} is already in use — Brains Cad Brain (or another program) is already running.\n` +
+    `Port ${p} is already in use — TC Quoting Estimate (or another program) is already running.\n` +
       "  If you installed auto-start, it is probably that: npm run service:status. Or pick another port: PORT=3001 in .env.",
   );
 }

@@ -39,7 +39,7 @@ if (await portInUse()) {
   );
 }
 
-// 2. Is it really a healthy Brains Cad Brain database?
+// 2. Is it really a healthy TC Quoting Estimate database?
 const header = readFileSync(src).subarray(0, 16).toString("latin1");
 if (header !== "SQLite format 3\0") die(`${src} is not a SQLite database file.`);
 const problem = await checkSqliteFile(src);

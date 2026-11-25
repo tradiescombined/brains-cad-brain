@@ -11,7 +11,7 @@ import { resolveEntityLabels } from "../reminders/entities.server";
 import { ReminderRow } from "../reminders/ReminderRow";
 import { currentPermissions } from "@/lib/permissions";
 
-export const metadata = { title: "Dashboard · Brains Cad Brain" };
+export const metadata = { title: "Dashboard · TC Quoting Estimate" };
 
 export default async function DashboardPage() {
   const today = localIso();

@@ -10,7 +10,7 @@ import { ReminderEditor } from "./ReminderEditor";
 import { ReminderRow } from "./ReminderRow";
 import { ENTITY_TYPES } from "./entities";
 
-export const metadata = { title: "Reminders · Brains Cad Brain" };
+export const metadata = { title: "Reminders · TC Quoting Estimate" };
 
 export default async function RemindersPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;

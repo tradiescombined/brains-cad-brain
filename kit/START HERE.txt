@@ -1,4 +1,4 @@
-BRAINS CAD BRAIN: SERVER KIT
+TC QUOTING ESTIMATE: SERVER KIT
 ============================
 
 Download: https://github.com/tradiescombined/brains-cad-brain/releases/latest
@@ -26,7 +26,7 @@ AFTER INSTALL
   - On the server Mac open  http://localhost:3000  and SIGN IN FIRST (you become the Owner).
   - Other computers/phones on the same Wi-Fi:  http://<mac-name>.local:3000
   - It starts by itself when the Mac logs in, and backs up every night at 2am.
-  - The "Brains Cad Brain" app is in Applications: double-click it to start and use the system.
+  - The "TC Quoting Estimate" app is in Applications: double-click it to start and use the system.
   - Full guide (after install): ~/brains-cad-brain/docs/SELF-HOSTING.md
 
 FILES IN THIS KIT

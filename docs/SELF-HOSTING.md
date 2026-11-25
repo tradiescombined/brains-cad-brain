@@ -1,6 +1,6 @@
-# Running Brains Cad Brain on your own Mac
+# Running TC Quoting Estimate on your own Mac
 
-This guide sets up Brains Cad Brain as a **server** on a Mac you own, installed from GitHub. Everyone
+This guide sets up TC Quoting Estimate as a **server** on a Mac you own, installed from GitHub. Everyone
 in your team opens it in a web browser and signs in with Google or Apple.
 
 You don't need to be a developer. You'll paste a few commands into **Terminal** (Applications →
@@ -542,7 +542,7 @@ right-click PowerShell and choose **Run as administrator**.
   out and press Enter twice.
 - **Editing `.env`:** `notepad .env`
 - **Firewall:** allow the prompt on *Private networks*, or as administrator:
-  `New-NetFirewallRule -DisplayName "Brains Cad Brain" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Private`
+  `New-NetFirewallRule -DisplayName "TC Quoting Estimate" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Private`
 - **Address from other devices:** `http://<PC-name>:3000` or the IPv4 address from `ipconfig`.
 - **Auto-start (step 8):** in PowerShell **as administrator**, in the app folder, run
   `npm run service:install`. This creates the Task Scheduler tasks `\brainscadbrain\Server` and

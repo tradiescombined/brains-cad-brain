@@ -8,7 +8,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-## Brains Cad Brain conventions (read before coding)
+## TC Quoting Estimate conventions (read before coding)
 
 - Product spec: `docs/SPEC.md`. Stack: Next.js 16 App Router, React 19, TypeScript, Tailwind v4,
   Drizzle ORM + libsql (SQLite file `data/bcb.db`). `cacheComponents` is OFF; pages are dynamic.

@@ -1,4 +1,4 @@
-# Brains Cad Brain — product spec
+# TC Quoting Estimate — product spec
 
 Estimating, takeoff, quoting and job management for residential builders and trades.
 Feature scope benchmarked against the workflows of Buildxact (a subscription we hold) — we

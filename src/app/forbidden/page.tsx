@@ -17,7 +17,7 @@ export default async function ForbiddenPage({ searchParams }: { searchParams: Pr
         {signIn ? (
           <>
             <h1 className="mt-3 text-lg font-semibold text-ink-900">Sign in required</h1>
-            <p className="mt-1 text-sm text-ink-600">Please sign in with an active team account to use Brains Cad Brain.</p>
+            <p className="mt-1 text-sm text-ink-600">Please sign in with an active team account to use TC Quoting Estimate.</p>
           </>
         ) : (
           <>

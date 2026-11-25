@@ -132,9 +132,9 @@ const linux = {
     const f = linux.files(s);
     mkdirSync(s.systemdDir, { recursive: true });
     const common = { nodePath: s.nodePath, workDir: ROOT };
-    writeFileSync(f.server, systemdServerUnit({ ...common, script: s.serverScript, description: "Brains Cad Brain web server" }));
-    writeFileSync(f.backup, systemdBackupUnit({ ...common, script: s.backupScript, description: "Brains Cad Brain database backup" }));
-    writeFileSync(f.timer, systemdTimer({ description: "Nightly Brains Cad Brain backup", ...BACKUP_AT }));
+    writeFileSync(f.server, systemdServerUnit({ ...common, script: s.serverScript, description: "TC Quoting Estimate web server" }));
+    writeFileSync(f.backup, systemdBackupUnit({ ...common, script: s.backupScript, description: "TC Quoting Estimate database backup" }));
+    writeFileSync(f.timer, systemdTimer({ description: "Nightly TC Quoting Estimate backup", ...BACKUP_AT }));
     for (const file of Object.values(f)) ok(`Wrote ${file}`);
     if (s.dryRun) return info("Dry run: systemd was not touched.");
     sh("systemctl", ["--user", "daemon-reload"]);
@@ -171,8 +171,8 @@ const windows = {
     mkdirSync(dir, { recursive: true });
     const common = { userId: windows.userId(), nodePath: s.nodePath, workDir: ROOT };
     const defs = [
-      { name: s.names.windows.server, file: path.join(dir, "server.xml"), xml: windowsTaskXml({ ...common, kind: "server", script: s.serverScript, description: "Brains Cad Brain web server (npm run service:uninstall to remove)" }) },
-      { name: s.names.windows.backup, file: path.join(dir, "backup.xml"), xml: windowsTaskXml({ ...common, kind: "backup", script: s.backupScript, dailyAt: BACKUP_AT, description: "Brains Cad Brain nightly database backup" }) },
+      { name: s.names.windows.server, file: path.join(dir, "server.xml"), xml: windowsTaskXml({ ...common, kind: "server", script: s.serverScript, description: "TC Quoting Estimate web server (npm run service:uninstall to remove)" }) },
+      { name: s.names.windows.backup, file: path.join(dir, "backup.xml"), xml: windowsTaskXml({ ...common, kind: "backup", script: s.backupScript, dailyAt: BACKUP_AT, description: "TC Quoting Estimate nightly database backup" }) },
     ];
     for (const d of defs) {
       writeFileSync(d.file, utf16leWithBom(d.xml));

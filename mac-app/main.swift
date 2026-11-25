@@ -1,4 +1,4 @@
-// Brains Cad Brain - native macOS app. Starts the Next.js server from the app folder and shows it in a window.
+// TC Quoting Estimate - native macOS app. Starts the Next.js server from the app folder and shows it in a window.
 //   With Clerk keys in .env:  runs `node scripts/serve.mjs` (normal server, other office devices can connect).
 //   Without Clerk keys:       runs a PREVIEW on 127.0.0.1 only with sign-in switched off, so it can be used on
 //                             this Mac until sign-in is set up. Nothing else on the network can reach it.
@@ -41,22 +41,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         web = makeWebView(cfg)
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1440, height: 900),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-        window.title = "Brains Cad Brain"
+        window.title = "TC Quoting Estimate"
         window.minSize = NSSize(width: 420, height: 500)
         window.contentView = web
         window.center()
         window.setFrameAutosaveName("BCBMain")
         window.makeKeyAndOrderFront(nil)
         guard fm.fileExists(atPath: ROOT.appendingPathComponent(".next/BUILD_ID").path) else {
-            web.loadHTMLString(statusPage("Brains Cad Brain isn't built yet", "Expected the app at \(ROOT.path).<br>In Terminal: <code>cd ~/brains-cad-brain && npm run setup</code>"), baseURL: nil)
+            web.loadHTMLString(statusPage("TC Quoting Estimate isn't built yet", "Expected the app at \(ROOT.path).<br>In Terminal: <code>cd ~/brains-cad-brain && npm run setup</code>"), baseURL: nil)
             return
         }
-        web.loadHTMLString(statusPage("Starting Brains Cad Brain…", ""), baseURL: nil)
+        web.loadHTMLString(statusPage("Starting TC Quoting Estimate…", ""), baseURL: nil)
         startServer { ok in
             if ok { self.web.load(URLRequest(url: baseURL)); self.dailyBackup() }
             else {
                 let tail = (try? String(contentsOf: logURL, encoding: .utf8)).map { String($0.suffix(1500)) } ?? ""
-                self.web.loadHTMLString(self.statusPage("Brains Cad Brain couldn't start", "Port \(PORT) may be used by another program.<pre style='text-align:left;white-space:pre-wrap'>\(tail.replacingOccurrences(of: "<", with: "&lt;"))</pre>"), baseURL: nil)
+                self.web.loadHTMLString(self.statusPage("TC Quoting Estimate couldn't start", "Port \(PORT) may be used by another program.<pre style='text-align:left;white-space:pre-wrap'>\(tail.replacingOccurrences(of: "<", with: "&lt;"))</pre>"), baseURL: nil)
             }
         }
         NSApp.activate(ignoringOtherApps: true)
@@ -81,7 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     }
 
     func updateTitle() {
-        window.title = preview ? "Brains Cad Brain — Preview (sign-in off, this Mac only)" : "Brains Cad Brain"
+        window.title = preview ? "TC Quoting Estimate — Preview (sign-in off, this Mac only)" : "TC Quoting Estimate"
     }
 
     // MARK: server
@@ -201,7 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     func webView(_ w: WKWebView, didFailProvisionalNavigation nav: WKNavigation!, withError error: Error) {
         if (error as NSError).code == NSURLErrorCancelled { return }
-        if w == web { w.loadHTMLString(statusPage("Can't reach the Brains Cad Brain server", "Use Tools → Restart Server."), baseURL: nil) }
+        if w == web { w.loadHTMLString(statusPage("Can't reach the TC Quoting Estimate server", "Use Tools → Restart Server."), baseURL: nil) }
     }
 
     // MARK: pop-up windows (print previews, documents); outside websites open in the default browser
@@ -212,7 +212,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         }
         let child = makeWebView(cfg)
         let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 960, height: 1000), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-        win.title = "Brains Cad Brain"
+        win.title = "TC Quoting Estimate"
         win.contentView = child
         win.isReleasedWhenClosed = false
         win.center()
@@ -267,12 +267,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             let i = NSMenuItem(title: t, action: a, keyEquivalent: k); i.keyEquivalentModifierMask = mods; if let target = target { i.target = target }; return i
         }
         let appM = NSMenu()
-        appM.addItem(item("About Brains Cad Brain", #selector(NSApplication.orderFrontStandardAboutPanel(_:))))
+        appM.addItem(item("About TC Quoting Estimate", #selector(NSApplication.orderFrontStandardAboutPanel(_:))))
         appM.addItem(.separator())
-        appM.addItem(item("Hide Brains Cad Brain", #selector(NSApplication.hide(_:)), "h"))
+        appM.addItem(item("Hide TC Quoting Estimate", #selector(NSApplication.hide(_:)), "h"))
         appM.addItem(item("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]))
         appM.addItem(.separator())
-        appM.addItem(item("Quit Brains Cad Brain", #selector(NSApplication.terminate(_:)), "q"))
+        appM.addItem(item("Quit TC Quoting Estimate", #selector(NSApplication.terminate(_:)), "q"))
         let editM = NSMenu(title: "Edit")
         editM.addItem(item("Undo", Selector(("undo:")), "z"))
         editM.addItem(item("Redo", Selector(("redo:")), "z", [.command, .shift]))
@@ -306,7 +306,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         let winM = NSMenu(title: "Window")
         winM.addItem(item("Minimize", #selector(NSWindow.performMiniaturize(_:)), "m"))
         winM.addItem(item("Close", #selector(NSWindow.performClose(_:)), "w"))
-        for (title, m) in [("Brains Cad Brain", appM), ("Edit", editM), ("View", viewM), ("Go", goM), ("Tools", toolsM), ("Window", winM)] {
+        for (title, m) in [("TC Quoting Estimate", appM), ("Edit", editM), ("View", viewM), ("Go", goM), ("Tools", toolsM), ("Window", winM)] {
             let top = NSMenuItem(title: title, action: nil, keyEquivalent: ""); top.submenu = m; main.addItem(top)
         }
         NSApp.mainMenu = main
@@ -351,13 +351,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     }
     @objc func showAddress() {
         if preview {
-            alert("Only this Mac for now", "Sign-in isn't set up yet, so Brains Cad Brain is running as a this-Mac-only preview.\n\nAdd the Clerk keys to \(ROOT.path)/.env, run npm run setup, then use Tools → Restart Server. Other devices can then connect.")
+            alert("Only this Mac for now", "Sign-in isn't set up yet, so TC Quoting Estimate is running as a this-Mac-only preview.\n\nAdd the Clerk keys to \(ROOT.path)/.env, run npm run setup, then use Tools → Restart Server. Other devices can then connect.")
             return
         }
         let addr = "http://\(localHostName()).local:\(PORT)"
         let a = NSAlert()
         a.messageText = "Open this on phones and other computers on the office Wi-Fi:"
-        a.informativeText = "\(addr)\n\nThis Mac must be awake with Brains Cad Brain running."
+        a.informativeText = "\(addr)\n\nThis Mac must be awake with TC Quoting Estimate running."
         a.addButton(withTitle: "Copy Address"); a.addButton(withTitle: "Close")
         if a.runModal() == .alertFirstButtonReturn { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(addr, forType: .string) }
     }

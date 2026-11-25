@@ -4,7 +4,7 @@ whenever it needs you: GitHub sign-in, your Mac password, or the Clerk keys.
 
 ---
 
-Set up **Brains Cad Brain** to run as a server on this Mac, and keep it backed up.
+Set up **TC Quoting Estimate** to run as a server on this Mac, and keep it backed up.
 
 Context:
 - It's my construction estimating / job management web app (Next.js + SQLite). Code lives in the
@@ -21,7 +21,7 @@ Do this, checking each step worked before moving on:
    to type. Suggest I run interactive commands with the `!` prefix.
 2. Clone https://github.com/tradiescombined/brains-cad-brain.git to `~/brains-cad-brain` (fall back to the bundle only if GitHub access
    fails, then set `origin` to https://github.com/tradiescombined/brains-cad-brain.git).
-   After setup, also run `zsh mac-app/build.sh` to install the Brains Cad Brain app in Applications.
+   After setup, also run `zsh mac-app/build.sh` to install the TC Quoting Estimate app in Applications.
 3. `npm run setup`.
 4. Help me get Clerk keys: walk me through creating a free Clerk app with Google and Apple sign-in
    turned on, and tell me where to paste the two keys in `.env`. Then run `npm run setup` again (the

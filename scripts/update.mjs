@@ -16,7 +16,7 @@ import { service } from "./service.mjs";
 process.chdir(ROOT);
 loadEnv();
 const force = process.argv.includes("--force");
-console.log(c.bold("Brains Cad Brain — update"));
+console.log(c.bold("TC Quoting Estimate — update"));
 
 // ── 1. preconditions ────────────────────────────────────────────────────────────────────────────
 if (git(["--version"]).code !== 0) die("Git is not installed (see docs/SELF-HOSTING.md → Prerequisites).");

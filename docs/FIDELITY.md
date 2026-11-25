@@ -2,7 +2,7 @@
 
 Systematic comparison of every screen, field, option and setting captured from the reference app
 (teardown + crawl of 18 Nov 2026: `research/BUILDXACT-TEARDOWN.md`, `research/crawl/pages/*`,
-`research/crawl/api/*`) against Brains Cad Brain. We match **functionality**, not wording, branding
+`research/crawl/api/*`) against TC Quoting Estimate. We match **functionality**, not wording, branding
 or catalogue data.
 
 Status key: **Match** — equivalent exists · **Partial** — exists with a narrower scope ·

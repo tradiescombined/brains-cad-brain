@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Builds "Brains Cad Brain.app" and installs it in /Applications (or ~/Applications).
+# Builds "TC Quoting Estimate.app" and installs it in /Applications (or ~/Applications).
 # The app does NOT bundle the web app: it runs the one in this repo folder (where the database and backups
 # live), so re-running npm run setup / npm run update is enough after code changes. Re-run this script only
 # if the repo folder moves, node moves, or mac-app/*.swift changes.
@@ -7,7 +7,7 @@ set -e
 HERE="${0:A:h}"
 ROOT="${HERE:h}"
 BUILD="$HERE/build"
-NAME="Brains Cad Brain"
+NAME="TC Quoting Estimate"
 APP="$BUILD/$NAME.app"
 NODE="$(command -v node || true)"
 [ -n "$NODE" ] || { echo "node not found on PATH"; exit 1; }
@@ -40,7 +40,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>NSHighResolutionCapable</key><true/>
   <key>LSApplicationCategoryType</key><string>public.app-category.business</string>
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
-  <key>NSLocalNetworkUsageDescription</key><string>Brains Cad Brain shares the app with phones and computers on your office Wi-Fi.</string>
+  <key>NSLocalNetworkUsageDescription</key><string>TC Quoting Estimate shares the app with phones and computers on your office Wi-Fi.</string>
   <key>BCBRoot</key><string>$ROOT</string>
   <key>BCBNode</key><string>$NODE</string>
 </dict></plist>
@@ -52,5 +52,15 @@ DEST="/Applications"
 [ -w "$DEST" ] || DEST="$HOME/Applications"
 mkdir -p "$DEST"
 rm -rf "$DEST/$NAME.app"
+# The app used to be called "Brains Cad Brain": quit and remove the old copy so only one is installed.
+OLD_NAME="Brains Cad Brain"
+if pgrep -x "$OLD_NAME" >/dev/null 2>&1; then
+  osascript -e "tell application \"$OLD_NAME\" to quit" >/dev/null 2>&1 || true
+  sleep 2
+  pkill -x "$OLD_NAME" >/dev/null 2>&1 || true
+fi
+for d in /Applications "$HOME/Applications"; do
+  if [ -d "$d/$OLD_NAME.app" ]; then rm -rf "$d/$OLD_NAME.app"; echo "Removed old app: $d/$OLD_NAME.app"; fi
+done
 cp -R "$APP" "$DEST/"
 echo "Installed: $DEST/$NAME.app"

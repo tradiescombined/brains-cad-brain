@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { clerkAppearance } from "@/components/auth/appearance";
+import { clerkLocalization } from "@/components/auth/localization";
 import { authBypassEnabled } from "@/lib/auth-bypass";
 import "./globals.css";
 
@@ -9,7 +10,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: { default: "Brains Cad Brain", template: "%s · Brains Cad Brain" },
+  title: { default: "TC Quoting Estimate", template: "%s · TC Quoting Estimate" },
   description: "Estimating, takeoffs, quotes and job management for builders and trades.",
 };
 
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         ) : (
           <ClerkProvider
             appearance={clerkAppearance}
+            localization={clerkLocalization}
             signInUrl={process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL ?? "/sign-in"}
             signUpUrl={process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL ?? "/sign-up"}
             signInFallbackRedirectUrl={process.env.NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL ?? "/dashboard"}

@@ -38,14 +38,14 @@ await check(Promise.resolve(action.status !== 200), `POST to a protected page is
 
 console.log("Sign-in page");
 await page.goto(base + "/sign-in");
-await check(page.getByText("Brains Cad Brain", { exact: true }).first().isVisible(), "our wordmark renders");
+await check(page.getByText("TC Quoting Estimate", { exact: true }).first().isVisible(), "our wordmark renders");
 await check(page.getByRole("heading", { name: "Sign in to your business" }).isVisible(), "our heading renders");
 const clerkCard = page.locator(".cl-signIn-root, .cl-cardBox").first();
 await check(clerkCard.waitFor({ state: "visible", timeout: 30000 }).then(() => true), "Clerk <SignIn/> UI renders");
 const google = await page.getByRole("button", { name: /Google/ }).count();
 const apple = await page.getByRole("button", { name: /Apple/ }).count();
 console.log(`  · social buttons on this Clerk instance: Google=${google > 0} Apple=${apple > 0} (enable both in the Clerk dashboard)`);
-await check(page.getByText("Brains Cad Brain", { exact: true }).first().isVisible(), "branding still present after Clerk loads");
+await check(page.getByText("TC Quoting Estimate", { exact: true }).first().isVisible(), "branding still present after Clerk loads");
 if (process.env.SCREENSHOT) await page.screenshot({ path: process.env.SCREENSHOT });
 
 console.log("Sign-up page");

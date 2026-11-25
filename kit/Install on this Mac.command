@@ -1,5 +1,5 @@
 #!/bin/bash
-# Brains Cad Brain: one-click server install for a Mac.
+# TC Quoting Estimate: one-click server install for a Mac.
 # Double-click this file. If macOS blocks it: right-click → Open → Open.
 # Safe to run again; it skips anything already done.
 
@@ -14,7 +14,7 @@ ok()   { printf "  \033[32m✔\033[0m %s\n" "$1"; }
 warn() { printf "  \033[33m!\033[0m %s\n" "$1"; }
 die()  { printf "\n\033[31m✘ %s\033[0m\n" "$1"; echo "Press Enter to close."; read -r _; exit 1; }
 
-bold "Brains Cad Brain: server install"
+bold "TC Quoting Estimate: server install"
 echo "  Installs into: $INSTALL_DIR"
 
 # 1. Homebrew
@@ -85,9 +85,9 @@ else
   npm run service:install || warn "Auto-start not installed. Start manually with: npm run serve"
 fi
 
-bold "7/7  Mac app (Brains Cad Brain in Applications)"
+bold "7/7  Mac app (TC Quoting Estimate in Applications)"
 if command -v swiftc >/dev/null 2>&1; then
-  zsh "$INSTALL_DIR/mac-app/build.sh" && ok "Installed the Brains Cad Brain app. Open it from Applications or Launchpad." || warn "Mac app build failed. The website still works in a browser."
+  zsh "$INSTALL_DIR/mac-app/build.sh" && ok "Installed the TC Quoting Estimate app. Open it from Applications or Launchpad." || warn "Mac app build failed. The website still works in a browser."
 else
   warn "Xcode command line tools missing, so the Mac app was skipped. Run: xcode-select --install, then: zsh ~/brains-cad-brain/mac-app/build.sh"
 fi

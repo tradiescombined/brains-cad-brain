@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/ui";
 import { SettingsNav } from "./_components/SettingsNav";
 import { requirePermission } from "@/lib/permissions";
 
-export const metadata = { title: "Settings · Brains Cad Brain" };
+export const metadata = { title: "Settings · TC Quoting Estimate" };
 
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
   await requirePermission("settings.manage");

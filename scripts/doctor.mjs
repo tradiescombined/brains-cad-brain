@@ -21,7 +21,7 @@ const ago = (ms) => {
   return h < 1 ? `${Math.round(ms / 60000)} min ago` : h < 48 ? `${h.toFixed(1)} h ago` : `${(h / 24).toFixed(1)} days ago`;
 };
 
-console.log(c.bold("Brains Cad Brain — doctor") + c.dim(`  (${ROOT})\n`));
+console.log(c.bold("TC Quoting Estimate — doctor") + c.dim(`  (${ROOT})\n`));
 
 // Node
 row("ok", "Node.js", process.versions.node);
@@ -81,7 +81,7 @@ if (await portInUse(p)) {
     detail = `serving on port ${p} (GET /sign-in → ${r.status})`;
     row(r.status === 200 ? "ok" : "warn", "Server", detail + (r.status === 200 ? "" : " — check logs/server-*.log"));
   } catch {
-    row("warn", "Server", `${detail}, but it did not answer like Brains Cad Brain`);
+    row("warn", "Server", `${detail}, but it did not answer like TC Quoting Estimate`);
   }
 } else row("warn", "Server", `not running (port ${p} free) — start with npm run serve`);
 row("info", "Listen address", `${host()}:${p}`);

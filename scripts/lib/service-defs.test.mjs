@@ -42,7 +42,7 @@ describe("launchdPlist", () => {
 });
 
 describe("systemd units", () => {
-  const o = { nodePath: "/usr/bin/node", script: "/srv/bcb 100%/scripts/serve.mjs", workDir: "/srv/bcb 100%", description: "Brains Cad Brain web server" };
+  const o = { nodePath: "/usr/bin/node", script: "/srv/bcb 100%/scripts/serve.mjs", workDir: "/srv/bcb 100%", description: "TC Quoting Estimate web server" };
 
   it("server unit restarts forever and starts with the user manager", () => {
     const u = systemdServerUnit(o);

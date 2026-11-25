@@ -1,4 +1,4 @@
-# Brains Cad Brain
+# TC Quoting Estimate
 
 **Download (Mac server kit):** https://github.com/tradiescombined/brains-cad-brain/releases/latest/download/BrainsCadBrain-Server-Kit.zip  
 Unzip it, open `START HERE.txt`, then double-click `Install on this Mac.command`.

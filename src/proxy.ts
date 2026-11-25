@@ -35,7 +35,7 @@ const clerk = clerkMiddleware(async (auth, req) => {
     if (next !== "/") url.searchParams.set("next", next);
     return NextResponse.redirect(url);
   }
-  return new NextResponse("You don't have access to Brains Cad Brain yet.", { status: 403 });
+  return new NextResponse("You don't have access to TC Quoting Estimate yet.", { status: 403 });
 }, {
   signInUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL ?? "/sign-in",
   signUpUrl: process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL ?? "/sign-up",
